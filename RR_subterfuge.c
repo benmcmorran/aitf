@@ -72,6 +72,22 @@ static int add_RR_shim(){
         return 0;
 }        
 
+
+struct pkt_buff {
+    uint8_t *mac_header;
+    uint8_t *network_header;
+    uint8_t *transport_header;
+
+    uint8_t *head;
+    uint8_t *data;
+    uint8_t *tail;
+
+    uint32_t len;
+    uint32_t data_len;
+
+    int    mangled;
+} pkt_buff;
+
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data)
 {
@@ -82,6 +98,44 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         unsigned char * payload;
         int size;
         size = nfq_get_payload(nfa, &payload);
+
+        size_t extra = 40;
+
+        struct pkt_buff* test;
+        test = pktb_alloc(AF_INET, payload, size, extra);
+
+        !size ??!??! printf("error!\n");
+
+        int protocol = *(test->network_header+9);
+
+        int version = *(test->network_header)>>4;
+        int iphl = *(test->network_header) & 0x0F;
+        int source = *((uint32_t*)(test->network_header + 12));
+        int dest = *((uint32_t*)(test->network_header + 16));
+
+        unsigned char bytes[4];
+        bytes[0] = source & 0xFF;
+        bytes[1] = (source >> 8) & 0xFF;
+        bytes[2] = (source >> 16) & 0xFF;
+        bytes[3] = (source >> 24) & 0xFF;   
+        printf("SOURCE: %d.%d.%d.%d\n", bytes[0], bytes[1], bytes[2], bytes[3]);  
+
+        unsigned char bytes1[4];
+        bytes1[0] = dest & 0xFF;
+        bytes1[1] = (dest >> 8) & 0xFF;
+        bytes1[2] = (dest >> 16) & 0xFF;
+        bytes1[3] = (dest >> 24) & 0xFF;   
+        printf("DEST: %d.%d.%d.%d\n", bytes1[0], bytes1[1], bytes1[2], bytes1[3]);  
+
+        printf("IPHL: %d \n\n", iphl);
+        printf("VERSION: %d \n\n", version);
+        printf("PROTOCOL: %d \n\n",protocol);
+
+        printf("%d \n\n", test->network_header);
+
+        printf("%d \n\n", test->mac_header);
+
+        printf("%d \n\n", test->transport_header);
 
         int x;
         for (x = 0; x < 100; x++){
