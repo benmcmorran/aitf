@@ -62,18 +62,20 @@ static u_int32_t print_pkt (struct nfq_data *tb)
         return id;
 }
 
+typedef struct RR_record{
+    uint32_t ipaddr;
+    uint64_t rn1;
+    uint64_t rn2;
+} RR_record;
 
+typedef struct RR_shim {
+    uint8_t oproc;
+    uint32_t pointer;
+    uint32_t size;
+    RR_record* table;
+} RR_shim;
 
-static int add_RR_route(){
-        return 0;
-}
-
-static int add_RR_shim(){
-        return 0;
-}        
-
-
-struct pkt_buff {
+typedef struct pkt_buff {
     uint8_t *mac_header;
     uint8_t *network_header;
     uint8_t *transport_header;
@@ -87,6 +89,86 @@ struct pkt_buff {
 
     int    mangled;
 } pkt_buff;
+
+
+uint16_t ip_checksum(void* vdata,size_t length) {
+    // Cast the data pointer to one that can be indexed.
+    char* data=(char*)vdata;
+
+    // Initialise the accumulator.
+    uint32_t acc=0xffff;
+
+    size_t i;
+
+    // Handle complete 16-bit blocks.
+    for (i=0;i+1<length;i+=2) {
+        uint16_t word;
+        memcpy(&word,data+i,2);
+        acc+=ntohs(word);
+        if (acc>0xffff) {
+            acc-=0xffff;
+        }
+    }
+
+    // Handle any partial block at the end of the data.
+    if (length&1) {
+        uint16_t word=0;
+        memcpy(&word,data+length-1,1);
+        acc+=ntohs(word);
+        if (acc>0xffff) {
+            acc-=0xffff;
+        }
+    }
+
+    // Return the checksum in network byte order.
+    return htons(~acc);
+}
+
+static int add_RR_route(){
+        return 0;
+}
+
+static uint8_t* add_RR_shim(pkt_buff* opack, uint8_t own_addr, uint32_t* packlen){
+
+
+        RR_shim* rshim = (RR_shim*) malloc(sizeof(RR_shim));
+        rshim->oproc = *(opack->network_header+9);
+        rshim->pointer = 1;
+        rshim->size = 8;
+
+        rshim->table = (RR_record*) calloc(sizeof(RR_record),8);
+        rshim->table[0].ipaddr = own_addr;
+        rshim->table[0].rn1 = 1234567890;
+        rshim->table[0].rn2 = 987654321;
+
+        uint8_t* new_buff = (unsigned char*) malloc((*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
+        
+        *packlen = (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
+
+        memcpy(new_buff, opack->network_header, (*(opack->network_header) & 0x0F) * 4);
+
+        //Change Protocol Number
+        *(new_buff + 9) =  253;
+        *((uint16_t*)(new_buff + 2)) = (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
+        *((uint16_t*)(new_buff + 10)) = 0;
+        *((uint16_t*)(new_buff + 10)) = ip_checksum(new_buff, sizeof(*(opack->network_header) & 0x0F) * 4);
+
+        uint8_t* temp_pointer = new_buff + (*(opack->network_header) & 0x0F) * 4;
+        memcpy(temp_pointer, rshim, sizeof(RR_shim) - sizeof(RR_record*));
+        temp_pointer += sizeof(RR_shim) - sizeof(RR_record*);
+        memcpy(temp_pointer, rshim->table, sizeof(RR_record)*rshim->size);
+        temp_pointer += sizeof(RR_record)*rshim->size;
+        memcpy(temp_pointer, opack->data, opack->len);
+        temp_pointer += opack->len;
+
+        free(rshim->table);
+        free(rshim);
+
+        return new_buff;
+}        
+
+
+
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data)
@@ -133,15 +215,43 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
         printf("%d \n\n", test->network_header);
 
-        printf("%d \n\n", test->mac_header);
+        printf("%d \n\n", test->len);
 
-        printf("%d \n\n", test->transport_header);
+        printf("%d \n\n", test->data_len);
 
         int x;
         for (x = 0; x < 100; x++){
           printf("%x", payload[x]);
         }
-        return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+
+        uint8_t* newdata;
+        uint32_t* dsize = (uint32_t*)malloc(sizeof(uint32_t));
+
+        if (protocol == 253){
+            //add_RR_route();    
+        }
+        else{
+            printf("\nADDING SHIM LAYER\n");
+            newdata = add_RR_shim(test, 5, dsize);
+        }
+
+
+        printf("\n\n DATA: \n\n");
+        printf("DSIZE: %d \n\n", *dsize);
+
+        int y;
+        for (y = 0; y < *dsize; y++)
+        {
+            printf("%02x", newdata[y]);
+        }
+
+        printf("\nFINISHED\n");
+
+
+        int ver = nfq_set_verdict(qh, id, NF_ACCEPT, *dsize, newdata);
+        free(newdata);
+        free(dsize);
+        return ver;
 }
 
 int main(int argc, char **argv)
