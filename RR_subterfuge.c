@@ -172,7 +172,7 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
         rshim->table[0].rn1 = (uint64_t) 0x11111111111111111;
         rshim->table[0].rn2 = (uint64_t)0x11111111111111111;
 
-        uint8_t* new_buff = (unsigned char*) malloc((*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
+        uint8_t* new_buff = (uint8_t*) malloc((*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         
         *packlen = (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
 
@@ -191,9 +191,9 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
         //Change Protocol Number
         *(new_buff + 9) =  (uint8_t) 253;
 
-        *((uint16_t*)(new_buff + 2)) = (uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
+        *((uint16_t*)(new_buff + 2)) = htons((uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
-        *((uint16_t*)(new_buff + 10)) = ip_checksum(new_buff, sizeof(*(opack->network_header) & 0x0F) * 4);
+        *((uint16_t*)(new_buff + 10)) = htons(ip_checksum(new_buff, sizeof(*(opack->network_header) & 0x0F) * 4));
 
 
         printf("MODIFIED HEADER: \n\n");
@@ -274,7 +274,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         printf("IPHL: %d \n\n", iphl);
         printf("VERSION: %d \n\n", version);
         printf("PROTOCOL: %d \n\n",protocol);
-        printf("HEADER CHECK: %d \n\n", *((uint16_t*)(test->network_header+10)));
+        printf("HEADER CHECK: %02x \n\n", *((uint16_t*)(test->network_header+10)));
 
         printf("%d \n\n", test->network_header);
 
