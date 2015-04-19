@@ -91,37 +91,27 @@ typedef struct pkt_buff {
 } pkt_buff;
 
 
-uint16_t ip_checksum(void* vdata,size_t length) {
-    // Cast the data pointer to one that can be indexed.
-    char* data=(char*)vdata;
-
-    // Initialise the accumulator.
-    uint32_t acc=0xffff;
-
-    size_t i;
-
-    // Handle complete 16-bit blocks.
-    for (i=0;i+1<length;i+=2) {
-        uint16_t word;
-        memcpy(&word,data+i,2);
-        acc+=ntohs(word);
-        if (acc>0xffff) {
-            acc-=0xffff;
-        }
+uint16_t ip_sum_calc(int len_ip_header, uint16_t* buff)
+{
+    uint16_t word16;
+    uint32_t sum=0;
+    uint16_t i;
+    
+    // make 16 bit words out of every two adjacent 8 bit words in the packet
+    // and add them up
+    for (i=0;i<len_ip_header;i=i+2){
+        word16 =((buff[i]<<8)&0xFF00)+(buff[i+1]&0xFF);
+        sum = sum + (uint32_t) word16;   
     }
+    
+    // take only 16 bits out of the 32 bit sum and add up the carries
+    while (sum>>16)
+      sum = (sum & 0xFFFF)+(sum >> 16);
 
-    // Handle any partial block at the end of the data.
-    if (length&1) {
-        uint16_t word=0;
-        memcpy(&word,data+length-1,1);
-        acc+=ntohs(word);
-        if (acc>0xffff) {
-            acc-=0xffff;
-        }
-    }
-
-    // Return the checksum in network byte order.
-    return htons(~acc);
+    // one's complement the result
+    sum = ~sum;
+    
+    return ((uint16_t) sum);
 }
 
 static uint8_t* add_RR_route(pkt_buff* opack, uint32_t own_addr, uint32_t* packlen){
@@ -193,7 +183,7 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
 
         *((uint16_t*)(new_buff + 2)) = htons((uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
-        *((uint16_t*)(new_buff + 10)) = ip_checksum(new_buff, sizeof(*(opack->network_header) & 0x0F) * 4);
+        *((uint16_t*)(new_buff + 10)) = htons(ip_sum_calc(sizeof(*(opack->network_header) & 0x0F) * 4, new_buff));
 
 
         printf("MODIFIED HEADER: \n\n");
