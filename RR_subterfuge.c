@@ -181,17 +181,7 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
         *((uint16_t*)(new_buff + 2)) = htons((uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
 
-        printf("NETWORK NUM: %d", (*(opack->network_header) & 0x0F) * 4);
-        printf("\n2MODIFIED HEADER: \n\n");
-        for (x=0;x< (*(opack->network_header) & 0x0F)*4;x++){
-            printf("%02x",new_buff[x]);
-        }
-
-
-        printf("\n\nCHECKSUM: %02x\n\n", ip_checksum(new_buff, (*(opack->network_header) & 0x0F) * 4));
-
-
-        *((uint16_t*)(new_buff + 10)) = htons(ip_checksum(new_buff, (*(opack->network_header) & 0x0F) * 4));
+        *((uint16_t*)(new_buff + 10)) = ip_checksum(new_buff, (*(opack->network_header) & 0x0F) * 4);
 
 
         printf("MODIFIED HEADER: \n\n");
