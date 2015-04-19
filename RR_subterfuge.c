@@ -91,27 +91,24 @@ typedef struct pkt_buff {
 } pkt_buff;
 
 
-uint16_t ip_sum_calc(int len_ip_header, uint16_t* buff)
+uint16_t ip_checksum(const void *buf, size_t hdr_len)
 {
-    uint16_t word16;
-    uint32_t sum=0;
-    uint16_t i;
-    
-    // make 16 bit words out of every two adjacent 8 bit words in the packet
-    // and add them up
-    for (i=0;i<len_ip_header;i=i+2){
-        word16 =((buff[i]<<8)&0xFF00)+(buff[i+1]&0xFF);
-        sum = sum + (uint32_t) word16;   
-    }
-    
-    // take only 16 bits out of the 32 bit sum and add up the carries
-    while (sum>>16)
-      sum = (sum & 0xFFFF)+(sum >> 16);
+        unsigned long sum = 0;
+        const uint16_t *ip1;
+ 
+        ip1 = buf;
+        while (hdr_len > 1)
+        {
+                sum += *ip1++;
+                if (sum & 0x80000000)
+                        sum = (sum & 0xFFFF) + (sum >> 16);
+                hdr_len -= 2;
+        }
 
-    // one's complement the result
-    sum = ~sum;
-    
-    return ((uint16_t) sum);
+        while (sum >> 16)
+                sum = (sum & 0xFFFF) + (sum >> 16);
+
+        return(~sum);
 }
 
 static uint8_t* add_RR_route(pkt_buff* opack, uint32_t own_addr, uint32_t* packlen){
@@ -184,8 +181,17 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
         *((uint16_t*)(new_buff + 2)) = htons((uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
 
+        printf("NETWORK NUM: %d", (*(opack->network_header) & 0x0F) * 4);
+        printf("\n2MODIFIED HEADER: \n\n");
+        for (x=0;x< (*(opack->network_header) & 0x0F)*4;x++){
+            printf("%02x",new_buff[x]);
+        }
 
-        *((uint16_t*)(new_buff + 10)) = htons(ip_sum_calc((*(opack->network_header) & 0x0F) * 4, new_buff));
+
+        printf("\n\nCHECKSUM: %02x\n\n", ip_checksum(new_buff, (*(opack->network_header) & 0x0F) * 4));
+
+
+        *((uint16_t*)(new_buff + 10)) = htons(ip_checksum(new_buff, (*(opack->network_header) & 0x0F) * 4));
 
 
         printf("MODIFIED HEADER: \n\n");
