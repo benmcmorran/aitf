@@ -124,11 +124,40 @@ uint16_t ip_checksum(void* vdata,size_t length) {
     return htons(~acc);
 }
 
-static int add_RR_route(){
-        return 0;
+static uint8_t* add_RR_route(pkt_buff* opack, uint32_t own_addr, uint32_t* packlen){
+        
+        RR_shim* rshim = opack->head + ((*(opack->network_header) & 0x0F) * 4);
+
+        if (rshim->pointer >= 8){
+            printf("Recieved Route with more than 9 hops. BAD PACKET!");
+        }
+
+        rshim->table[rshim->pointer].ipaddr = own_addr;
+        rshim->table[rshim->pointer].rn1 = (uint64_t)9876;
+        rshim->table[rshim->pointer].rn2 = (uint64_t)12345;
+
+
+
+        rshim->pointer = rshim->pointer+1;
+
+        *packlen = opack->len;
+
+        return opack->head;
 }
 
-static uint8_t* add_RR_shim(pkt_buff* opack, uint8_t own_addr, uint32_t* packlen){
+
+static uint8_t* remove_RR_route(pkt_buff* opack, uint32_t own_addr, uint32_t* packlen){
+    RR_shim* rshim = opack->head + ((*(opack->network_header) & 0x0F) * 4);
+
+    uint8_t* oldpack = opack->head + ((*(opack->network_header) & 0x0F) * 4) + sizeof(RR_shim) - sizeof(RR_record*) + sizeof(RR_record) * rshim->size;
+
+    *packlen = (uint16_t)oldpack+2;
+
+    return oldpack;  
+}
+
+
+static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packlen){
 
 
         RR_shim* rshim = (RR_shim*) malloc(sizeof(RR_shim));
@@ -137,9 +166,9 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint8_t own_addr, uint32_t* packlen
         rshim->size = 8;
 
         rshim->table = (RR_record*) calloc(sizeof(RR_record),8);
-        rshim->table[0].ipaddr = own_addr;
-        rshim->table[0].rn1 = 1234567890;
-        rshim->table[0].rn2 = 987654321;
+        rshim->table[0].ipaddr = (uint32_t)0x55555555;
+        rshim->table[0].rn1 = (uint64_t) 0x11111111111111111;
+        rshim->table[0].rn2 = (uint64_t)0x11111111111111111;
 
         uint8_t* new_buff = (unsigned char*) malloc((*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         
@@ -147,11 +176,28 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint8_t own_addr, uint32_t* packlen
 
         memcpy(new_buff, opack->network_header, (*(opack->network_header) & 0x0F) * 4);
 
+
+        int x;
+
+        printf("NETWORK HEADER: \n\n");
+        for(x=0;x<(*(opack->network_header) & 0x0F) * 4; x++){
+            printf("%02x",opack->network_header[x]);
+        }
+
+        printf("\n\n");
+
         //Change Protocol Number
-        *(new_buff + 9) =  253;
-        *((uint16_t*)(new_buff + 2)) = (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
-        *((uint16_t*)(new_buff + 10)) = 0;
+        *(new_buff + 9) =  (uint8_t) 253;
+
+        *((uint16_t*)(new_buff + 2)) = (uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record);
+        *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
         *((uint16_t*)(new_buff + 10)) = ip_checksum(new_buff, sizeof(*(opack->network_header) & 0x0F) * 4);
+
+
+        printf("MODIFIED HEADER: \n\n");
+        for (x=0;x< (*(opack->network_header) & 0x0F)*4;x++){
+            printf("%02x",new_buff[x]);
+        }
 
         uint8_t* temp_pointer = new_buff + (*(opack->network_header) & 0x0F) * 4;
         memcpy(temp_pointer, rshim, sizeof(RR_shim) - sizeof(RR_record*));
@@ -163,11 +209,25 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint8_t own_addr, uint32_t* packlen
 
         free(rshim->table);
         free(rshim);
-
         return new_buff;
 }        
 
 
+void print_RR_shim(uint8_t* test){
+
+    
+    RR_shim* rshim = test + ((*(test) & 0x0F) * 4);
+
+
+    printf("\n\nRSHIM: ORIGINAL PROTOCOL: %d POINTER: %d SIZE: %d", rshim->oproc, rshim->pointer, rshim->size);
+    int x;
+
+    RR_record* data = test + ((*(test) & 0x0F) * 4) + sizeof(RR_shim) - sizeof(RR_record*);
+    for (x=0;x < rshim->pointer ; x++){
+
+        printf("\n\nRR_RECORD %d: IP: %d  RN1: %d  RN2: %d \n\n", x, data[x].ipaddr, data[x].rn1, data[x].rn2);
+    }
+}
 
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
@@ -181,7 +241,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         int size;
         size = nfq_get_payload(nfa, &payload);
 
-        size_t extra = 40;
+        size_t extra = 0;
 
         struct pkt_buff* test;
         test = pktb_alloc(AF_INET, payload, size, extra);
@@ -228,11 +288,12 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         uint32_t* dsize = (uint32_t*)malloc(sizeof(uint32_t));
 
         if (protocol == 253){
-            //add_RR_route();    
+            newdata = add_RR_route(test, 5, dsize);    
         }
         else{
             printf("\nADDING SHIM LAYER\n");
             newdata = add_RR_shim(test, 5, dsize);
+            print_RR_shim(newdata);
         }
 
 
