@@ -132,9 +132,11 @@ static uint8_t* add_RR_route(pkt_buff* opack, uint32_t own_addr, uint32_t* packl
             printf("Recieved Route with more than 9 hops. BAD PACKET!");
         }
 
-        rshim->table[rshim->pointer].ipaddr = own_addr;
-        rshim->table[rshim->pointer].rn1 = (uint64_t)9876;
-        rshim->table[rshim->pointer].rn2 = (uint64_t)12345;
+        RR_record* data = opack->head + ((*(opack->head) & 0x0F) * 4) + sizeof(RR_shim) - sizeof(RR_record*);
+
+        data[rshim->pointer].ipaddr = own_addr;
+        data[rshim->pointer].rn1 = (uint64_t)9876;
+        data[rshim->pointer].rn2 = (uint64_t)12345;
 
 
 
