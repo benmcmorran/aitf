@@ -290,7 +290,9 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         uint32_t* dsize = (uint32_t*)malloc(sizeof(uint32_t));
 
         if (protocol == 253){
-            newdata = add_RR_route(test, 5, dsize);    
+            printf("\nADDING TO RR_record\n");
+            newdata = add_RR_route(test, 5, dsize);
+            print_RR_shim(newdata);    
         }
         else{
             printf("\nADDING SHIM LAYER\n");
