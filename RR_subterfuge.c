@@ -274,6 +274,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         printf("IPHL: %d \n\n", iphl);
         printf("VERSION: %d \n\n", version);
         printf("PROTOCOL: %d \n\n",protocol);
+        printf("HEADER: %d \n\n", *((uint16_t*)(test->network_header+10)));
 
         printf("%d \n\n", test->network_header);
 
