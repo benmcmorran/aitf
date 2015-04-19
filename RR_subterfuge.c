@@ -271,6 +271,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         printf("%d \n\n", test->data_len);
 
         int x;
+        int c = 0;
         for (x = 0; x < 100; x++){
           printf("%x", payload[x]);
         }
@@ -286,6 +287,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         else{
             printf("\nADDING SHIM LAYER\n");
             newdata = add_RR_shim(test, 5, dsize);
+            c = 1;
             print_RR_shim(newdata);
         }
 
@@ -305,7 +307,10 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 
         int ver = nfq_set_verdict(qh, id, NF_ACCEPT, *dsize, newdata);
-        free(newdata);
+        
+        if (c == 1){
+            free(newdata);
+        }
         free(dsize);
         return ver;
 }
