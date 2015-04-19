@@ -183,7 +183,9 @@ static uint8_t* add_RR_shim(pkt_buff* opack, uint32_t own_addr, uint32_t* packle
 
         *((uint16_t*)(new_buff + 2)) = htons((uint16_t) (*(opack->network_header) & 0x0F) * 4 + opack->len + sizeof(RR_shim) - sizeof(RR_record*) + rshim->size * sizeof(RR_record));
         *((uint16_t*)(new_buff + 10)) = (uint16_t) 0;
-        *((uint16_t*)(new_buff + 10)) = htons(ip_sum_calc(sizeof(*(opack->network_header) & 0x0F) * 4, new_buff));
+
+
+        *((uint16_t*)(new_buff + 10)) = htons(ip_sum_calc((*(opack->network_header) & 0x0F) * 4, new_buff));
 
 
         printf("MODIFIED HEADER: \n\n");
