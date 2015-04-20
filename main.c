@@ -53,6 +53,8 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             result = ip.serialize();
         }
 
+        cout << endl;
+
         /*
         for (int i = 0; i < size; i++) printf("%02x", packet[i]);
         printf("\n\n");
