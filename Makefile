@@ -1,2 +1,2 @@
 all:
-	gcc -g -trigraphs RR_subterfuge.c -o RR_sub -lnetfilter_queue
+	g++ -g -o rr main.c RR.cpp RREntry.cpp Utils.cpp -ltins -lnetfilter_queue
