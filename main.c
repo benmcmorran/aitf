@@ -9,11 +9,19 @@
 #include <tins/tins.h>
 #include <tins/network_interface.h>
 #include <iostream>
+#include <fstream>
 
 #include "RR.h"
 
 using namespace Tins;
 using namespace std;
+
+typedef enum {
+    ROUTER,
+    HOST
+} Mode;
+
+Mode mode = ROUTER;
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data)
@@ -30,28 +38,42 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         cout << ip.src_addr() << " -> " << ip.dst_addr() << endl;
 
         RR *rr = ip.find_pdu<RR>();
-        if (rr != 0) {
-            cout << "Adding to existing RR" << endl;
-        } else {
-            cout << "Creating RR table" << endl;
-            std::vector<uint8_t> payload = ip.serialize_inner();
-            RR newRR(ip.protocol(), 5, &payload[0], payload.size());
-            ip.inner_pdu(newRR);
-            rr = ip.find_pdu<RR>();
+        if (mode == ROUTER) {
+            if (rr != 0) {
+                cout << "Adding to existing RR" << endl;
+            } else {
+                cout << "Creating RR table" << endl;
+                std::vector<uint8_t> payload = ip.serialize_inner();
+                RR newRR(ip.protocol(), 5, &payload[0], payload.size());
+                ip.inner_pdu(newRR);
+                rr = ip.find_pdu<RR>();
+            }
+
+            NetworkInterface interface(ip.dst_addr());
+            rr->route().push_back(RREntry(interface.addresses().ip_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
+
+            if (rr->route().size() > rr->route_capacity()) {
+                cout << "RR table filled. Dropping packet." << endl;
+                verdict = NF_DROP;
+            } else {
+                for (int i = 0; i < rr->route().size(); i++)
+                    cout << i << " " << rr->route()[i].address() << endl;
+            }
+        } else if (mode == HOST) {
+            if (rr != 0) {
+                cout << "Stripping RR table" << endl;
+                for (int i = 0; i < rr->route().size(); i++)
+                    cout << i << " " << rr->route()[i].address() << endl;
+
+                RawPDU raw = RawPDU(&rr->payload()[0], rr->payload().size());
+                ip.inner_pdu(raw);
+                ip.protocol(rr->original_protocol());
+            } else {
+                cout << "No RR table present" << endl;
+            }
         }
 
-        NetworkInterface interface(ip.dst_addr());
-        rr->route().push_back(RREntry(interface.addresses().ip_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
-
-        if (rr->route().size() > rr->route_capacity()) {
-            cout << "RR table filled. Dropping packet." << endl;
-            verdict = NF_DROP;
-        } else {
-            for (int i = 0; i < rr->route().size(); i++)
-                cout << i << " " << rr->route()[i].address() << endl;
-
-            result = ip.serialize();
-        }
+        result = ip.serialize();
 
         cout << endl;
 
@@ -111,6 +133,13 @@ int main(int argc, char **argv)
     int fd;
     int rv;
     char buf[4096] __attribute__ ((aligned));
+
+    if (argc == 2 && strcmp(argv[1], "--host") == 0) {
+        mode = HOST;
+        cout << "Running in host mode" << endl;
+    } else {
+        cout << "Running in router mode" << endl;
+    }
 
     h = nfq_open();
     if (!h) fail("error during nfq_open()");
