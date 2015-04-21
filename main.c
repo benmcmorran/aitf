@@ -12,6 +12,8 @@
 #include <fstream>
 
 #include "RR.h"
+#include "HostMappingReader.h"
+#include "HostMapping.h"
 
 using namespace Tins;
 using namespace std;
@@ -22,6 +24,26 @@ typedef enum {
 } Mode;
 
 Mode mode = ROUTER;
+HostMapping hosts;
+
+static void print_route(std::vector<RREntry>& route) {
+    for (int i = 0; i < route.size(); i++)
+        cout << i << " " << route[i].address() << endl;
+}
+
+static void create_rr(IP& ip) {
+    cout << "Creating RR table" << endl;
+    std::vector<uint8_t> payload = ip.serialize_inner();
+    RR newRR(ip.protocol(), 5, &payload[0], payload.size());
+    ip.inner_pdu(newRR);
+}
+
+static void strip_rr(IP& ip, const RR& rr) {
+    cout << "Stripping RR table" << endl;
+    RawPDU raw = RawPDU(&rr.payload()[0], rr.payload().size());
+    ip.inner_pdu(raw);
+    ip.protocol(rr.original_protocol());
+}
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data)
@@ -38,75 +60,44 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         cout << ip.src_addr() << " -> " << ip.dst_addr() << endl;
 
         RR *rr = ip.find_pdu<RR>();
+
         if (mode == ROUTER) {
-            if (rr != 0) {
-                cout << "Adding to existing RR" << endl;
+            if (hosts.isLegacyHost(ip.dst_addr())) {
+                cout << "Legacy host detected" << endl;
+                if (rr != 0) {
+                    print_route(rr->route());
+                    strip_rr(ip, *rr);
+                } else {
+                    cout << "No RR table present" << endl;
+                }
             } else {
-                cout << "Creating RR table" << endl;
-                std::vector<uint8_t> payload = ip.serialize_inner();
-                RR newRR(ip.protocol(), 5, &payload[0], payload.size());
-                ip.inner_pdu(newRR);
-                rr = ip.find_pdu<RR>();
-            }
+                if (rr != 0) {
+                    cout << "Adding to existing RR" << endl;
+                } else {
+                    create_rr(ip);
+                    rr = ip.find_pdu<RR>();
+                }
 
-            NetworkInterface interface(ip.dst_addr());
-            rr->route().push_back(RREntry(interface.addresses().ip_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
+                NetworkInterface interface(ip.dst_addr());
+                rr->route().push_back(RREntry(interface.addresses().ip_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
 
-            if (rr->route().size() > rr->route_capacity()) {
-                cout << "RR table filled. Dropping packet." << endl;
-                verdict = NF_DROP;
-            } else {
-                for (int i = 0; i < rr->route().size(); i++)
-                    cout << i << " " << rr->route()[i].address() << endl;
+                if (rr->route().size() > rr->route_capacity()) {
+                    cout << "RR table filled. Dropping packet." << endl;
+                    verdict = NF_DROP;
+                } else print_route(rr->route());
             }
         } else if (mode == HOST) {
             if (rr != 0) {
-                cout << "Stripping RR table" << endl;
-                for (int i = 0; i < rr->route().size(); i++)
-                    cout << i << " " << rr->route()[i].address() << endl;
-
-                RawPDU raw = RawPDU(&rr->payload()[0], rr->payload().size());
-                ip.inner_pdu(raw);
-                ip.protocol(rr->original_protocol());
+                print_route(rr->route());
+                strip_rr(ip, *rr);
             } else {
                 cout << "No RR table present" << endl;
             }
         }
 
         result = ip.serialize();
-
         cout << endl;
 
-        /*
-        for (int i = 0; i < size; i++) printf("%02x", packet[i]);
-        printf("\n\n");
-
-        // Insert and remove the shim
-        std::vector<uint8_t> payload = ip.serialize_inner();
-
-        RR rr = RR(ip.protocol(), 5, &payload[0], payload.size());
-        result = rr.serialize();
-
-        for (int i = 0; i < result.size(); i++) printf("%02x", result.at(i));
-        printf("\n\n");
-
-        ip.inner_pdu(rr);
-        result = ip.serialize();
-
-        for (int i = 0; i < result.size(); i++) printf("%02x", result.at(i));
-        printf("\n\n");
-
-        IP newIP = IP(&result[0], result.size());
-        RR *rrptr = newIP.find_pdu<RR>();
-        RawPDU raw = RawPDU(&rrptr->payload()[0], rrptr->payload().size());
-        newIP.inner_pdu(raw);
-        newIP.protocol(rrptr->original_protocol());
-
-        result = newIP.serialize();
-
-        for (int i = 0; i < result.size(); i++) printf("%02x", result.at(i));
-        printf("\n\n");
-        */
     } catch (malformed_packet e) {
         cout << "malformed packet " << e.what() << endl;
     }
@@ -119,6 +110,10 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 void fail(const char* msg) {
     fprintf(stderr, "%s\n", msg);
     exit(1);
+}
+
+void usage() {
+    fail("Usage: rr [--host] [--list hostsfile]");
 }
 
 int main(int argc, char **argv)
@@ -134,12 +129,27 @@ int main(int argc, char **argv)
     int rv;
     char buf[4096] __attribute__ ((aligned));
 
-    if (argc == 2 && strcmp(argv[1], "--host") == 0) {
-        mode = HOST;
-        cout << "Running in host mode" << endl;
-    } else {
-        cout << "Running in router mode" << endl;
+    if (argc >= 2) {
+        for (int i = 0; i < argc; i++) {
+            if (strcmp(argv[i], "--host") == 0)
+                mode = HOST;
+            else if (strcmp(argv[i], "--list") == 0) {
+                if (i + 1 >= argc) usage();
+                try {
+                    hosts = HostMappingReader::read_from_path(argv[i + 1]);
+                    i++;
+                } catch (const AITFException& e) {
+                    fail("Could not read hosts file");
+                }
+            }
+        }
     }
+
+    if (mode == HOST)
+        cout << "Running in host mode" << endl;
+    else if (mode == ROUTER)
+        cout << "Running in router mode" << endl;
+
 
     h = nfq_open();
     if (!h) fail("error during nfq_open()");
