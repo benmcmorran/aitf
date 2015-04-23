@@ -7,13 +7,54 @@
 #include <netinet/in.h>
 #include <malloc.h>
 #include <string.h>
+#include <map>
+#include <tins/tins.h>
 
+using namespace Tins;
 
-void AITF_enforce(AITF_packet pack){
+extern HostMapping host;
+
+unordered_map<AITF_identity, AITF_connect_state> ostate_table;
+unordered_map<AITF_identity, AITF_connect_state> istate_table;
+
+typedef enum{
+	enforce, request, verify, correct, block, cease
+} AITF_type;
+
+typedef struct thread_data{
+	IP::address_type addr;
+	char buff[1500];
+	ssize_t size;
+} thread_data;
+
+void AITF_enforce(AITF_packet pack, IP::address_type addr){
+	if (host.isEnabledHost(addr)){
+		if (ostate_table.find(pack.identity())){
+			AITF_escalation(pack);
+		}else{
+			AITF_connect_state cstate = AITF_connect_state(pack);
+			ostate_table[pack.identity()] = cstate;
+			AITF_packet request = AITF_packet(AITF_type.request, generateNonce(), 0, pack.identity());
+
+			if (request.identity().filters().size() >= 2){
+				send_AITF_message(request, request.identity().filters()[1].addr);
+			}else{
+				map.erase(request.identity());
+			}
+		}
+	}
 	return;
 }
 
 void AITF_request(AITF_packet pack){
+	vector<NetworkInterface> ip_addrs = NetworkInterface::all();
+	int x;
+	int y;
+	for (x = ip_addrs.size()-1; x >= 0; x--){
+		if (ip_addrs[x].addresses().ip_addr == pack.identity().filters()[pack.identity().pointer()].addr){
+
+		}
+	}
 	return;
 }
 
@@ -33,28 +74,14 @@ void AITF_cease(AITF_packet pack){
 	return;
 }
 
-void AITF_request(int* socketaddr){
-	char* data = new char[RECIEVESIZE]();
-	string hold;
-	int datamt;
-	
-	while (1)
-	{
-		if ((datamt = recv(*socketaddr, data, RECIEVESIZE, 0)) <= 0){
-			cout << "break: " << datamt << endl;
-			break;
-		}
-		cout << datamt << endl;
-		string temp(data, datamt);
-		hold += temp;
-	}
+void AITF_request(thread_data* data){
 
-	AITF_packet apacket = AITF_packet((uint8_t*)hold.c_str(), hold.length());
+	AITF_packet apacket = AITF_packet((uint8_t*)data->buff, data->size);
 
 	switch(apacket.packet_type())
 	{
 		case 1:
-			AITF_enforce(apacket);
+			AITF_enforce(apacket, data->addr);
 			break;
 		case 2:
 			AITF_request(apacket);
@@ -72,6 +99,7 @@ void AITF_request(int* socketaddr){
 		default:
 			AITF_cease(apacket);
 	}
+	free(data);
 }
 
 void AITF_daemon(void* data){
@@ -82,7 +110,7 @@ void AITF_daemon(void* data){
 	int fdListen = 0;
 	int fdconn = 0;
 	int out = 0;
-	int client;
+	int client = sizeof(client_addr);
 	     
 	// Establish the socket that will be used for listening 
 	fd = socket(AF_INET, SOCK_STREAM, 0); 
@@ -98,13 +126,21 @@ void AITF_daemon(void* data){
 	listen( fd, 10); 
 	fdListen = fd; 
 
-	 
+	ssize_t tsdata;
+	thread_data* buff;
 	while(1) 
 	{ 
-		// Do the accept 
-		client = sizeof(client_addr);
-		fdconn = accept( fdListen, (struct sockaddr*)&client_addr, &client); 
-		out = CreateAThread( (void *)(*AITF_request), &fdconn); 
+		buff = (thread_data*) malloc(sizeof(thread_data));
+		tsdata =  recvfrom(fdlisten, buff->buff, 1500, 0, (struct sockaddr *)&client_addr, &client);
+
+		if (tsdata > 0){
+			uint32_t conn_addr = client_addr.s_addr;
+			buff->addr = IP::address_type(conn_addr);
+			buff->size = tsdata;
+			out = CreateAThread( (void *)(*AITF_request), buff); 
+		}else{
+			free(buff);
+		}
 	}
 }
 
