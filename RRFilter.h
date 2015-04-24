@@ -15,6 +15,9 @@ public:
 	uint64_t random_number_1() const;
 	uint64_t random_number_2() const;
 
+	void set_random_number_1(uint64_t n1);
+	void set_random_number_2(uint64_t n2);
+	void set_match_type(uint8_t mt);
 	int match(RREntry entry);
 
 private:

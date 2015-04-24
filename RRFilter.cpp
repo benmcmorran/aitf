@@ -30,8 +30,8 @@ uint64_t RRFilter::random_number_2() const{
 	return _random_number_2;
 }
 
-int RRFilter::match(IP::address_type addr){
-	if ((uint32_t)addr == (uint32_t)address()){
+int RRFilter::match(RREntry entry){
+	if (entry.address() == address()){
 		return 1;
 	}else{
 		return 0;

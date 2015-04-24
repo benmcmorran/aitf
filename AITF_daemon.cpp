@@ -31,6 +31,42 @@ typedef struct thread_data{
 	ssize_t size;
 } thread_data;
 
+// ///////////////////////////////////////////////////////////////////////////////
+//           CreateAThread
+//    Set up a new thread for the caller.  We need to be passed here:
+//    Arg1:  The start address of the new thread
+//    Arg2:  The address of an int or structure containing data for the new thread
+//
+//    We return the Thread Handle to the caller.
+//    We print lots of errors if something goes wrong.  But we return anyway
+// ///////////////////////////////////////////////////////////////////////////////
+
+unsigned int    CreateAThread( void *ThreadStartAddress, int *data )
+{
+    int                  ReturnCode;
+    pthread_t            Thread;
+    pthread_attr_t       Attribute;
+
+    ReturnCode = pthread_attr_init( &Attribute );
+    if ( ReturnCode != 0 )
+        printf( "Error in pthread_attr_init in CreateAThread\n" );
+    ReturnCode = pthread_attr_setdetachstate( &Attribute, PTHREAD_CREATE_JOINABLE );
+    if ( ReturnCode != 0 )
+        printf( "Error in pthread_attr_setdetachstate in CreateAThread\n" );
+    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, (void *)*data );
+    if ( ReturnCode == EINVAL )                        /* Will return 0 if successful */
+        printf( "ERROR doing pthread_create - The Thread, attr or sched param is wrong\n");
+    if ( ReturnCode == EAGAIN )                        /* Will return 0 if successful */
+        printf( "ERROR doing pthread_create - Resources not available\n");
+    if ( ReturnCode == EPERM )                        /* Will return 0 if successful */
+        printf( "ERROR doing pthread_create - No privileges to do this sched type & prior.\n");
+
+    ReturnCode = pthread_attr_destroy( &Attribute );
+    if ( ReturnCode )                                    /* Will return 0 if successful */
+        printf( "Error in pthread_mutexattr_destroy in CreateAThread\n" );
+    return( (unsigned int)Thread );
+}                            // End of CreateAThread
+
 
 void AITF_escalation(AITF_packet pack){
 	return;
@@ -44,6 +80,10 @@ void send_AITF_message(AITF_packet pack, IP::address_type addr){
 	return;
 }
 
+uint64_t generateRandomValue(IP::address_type addr, int x){
+	return 12345;
+}
+
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
 	if (host.isEnabledHost(addr)){
 		if (ostate_table.find(pack.identity())){
@@ -51,12 +91,12 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 		}else{
 			AITF_connect_state cstate();
 			ostate_table.emplace(pack.identity(), cstate);
-			AITF_packet request((uint8_t)REQUEST, generateNonce(), 0, pack.identity());
+			AITF_packet request((uint8_t)REQUEST, generateNonce(), (uint64_t)0, pack.identity());
 
 			if (request.identity().filters().size() >= 2){
 				send_AITF_message(request, request.identity().filters()[1].address());
 			}else{
-				map.erase(request.identity());
+				ostate_table.erase(request.identity());
 			}
 		}
 	}
@@ -75,20 +115,20 @@ void AITF_request(AITF_packet pack){
 		}
 	}
 
-	RREntry rent = pack.identity().filters()[pack.identity().pointer()];
+	RRFilter rent = pack.identity().filters()[pack.identity().pointer()];
 
 	//Check the random numbers
-	if (getRandomValue(rent.victim(),1) == rent.random_number_1() || getRandomValue(rent.victim(),1) == rent.random_number_2()){
+	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
 		// SEND VERIFY
-		AITF_connect_state cstate = AITF_connect_state(pack);
+		AITF_connect_state cstate();
 		istate_table.emplace(pack.identity(), cstate);
 		AITF_packet verify((uint8_t)VERIFY, pack.nonce1(), generateNonce(), pack.identity());
 
 		send_AITF_message(verify, verify.identity().victim());
 	}else{
 		// SEND CORRECT
-		rent.set_random_number_1(generateRandomValue(rent.victim(), 1));
-		rent.set_random_number_2(generateRandomValue(rent.victim(), 2));
+		rent.set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
+		rent.set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
 		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity());
 
 		send_AITF_message(correct, correct.identity().victim());
@@ -102,7 +142,7 @@ void AITF_verify(AITF_packet pack){
 	if (ostate_table.find(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
-			AITF_packet block((uint8_t)BLOCK, 0, pack.nonce2(), pack.identity());
+			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.identity());
 
 			send_AITF_message(block, pack.identity().filters()[cstate.currentRoute()].address());
 		}
@@ -114,7 +154,8 @@ void AITF_correct(AITF_packet pack){
 	if (ostate_table.find(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
-			RREntry rent = pack.identity().filters()[cstate.currentRoute()].set_match_type(2);
+			RRFilter rent = pack.identity().filters()[cstate.currentRoute()];
+			rent.set_match_type(2);
 			AITF_enforce(pack, pack.identity().victim());
 		}
 	}
@@ -163,10 +204,10 @@ void AITF_daemon(void* data){
 
 	struct sockaddr_in serv_addr, client_addr; 
 	int fd = 0;
-	int fdListen = 0;
+	int fdlisten = 0;
 	int fdconn = 0;
 	int out = 0;
-	int client = sizeof(client_addr);
+	unsigned int client = sizeof(client_addr);
 	     
 	// Establish the socket that will be used for listening 
 	fd = socket(AF_INET, SOCK_STREAM, 0); 
@@ -180,7 +221,7 @@ void AITF_daemon(void* data){
 	 
 	// Set up to listen 
 	listen( fd, 10); 
-	fdListen = fd; 
+	fdlisten = fd; 
 
 	ssize_t tsdata;
 	thread_data* buff;
@@ -193,7 +234,7 @@ void AITF_daemon(void* data){
 			uint32_t conn_addr = client_addr.s_addr;
 			buff->addr = IP::address_type(conn_addr);
 			buff->size = tsdata;
-			out = CreateAThread( (void *)(*AITF_request), buff); 
+			out = CreateAThread( (void *)(*AITF_request),(int*) buff); 
 		}else{
 			free(buff);
 		}
@@ -203,5 +244,5 @@ void AITF_daemon(void* data){
 int intializeAITF(void* filtertable){
 	int aitf_thread = 0;
 
-	aitf_thread = CreateAThread( (void *)(*AITF_daemon), filtertable); 
+	aitf_thread = CreateAThread( (void *)(*AITF_daemon), (int*)filtertable); 
 }
