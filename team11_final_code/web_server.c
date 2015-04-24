@@ -29,7 +29,7 @@ int out = 0;
 int client;
      
 // Establish the socket that will be used for listening 
- fd = socket(AF_INET, SOCK_STREAM, 0); 
+ fd = socket(AF_INET, SOCK_DGRAM, 0); 
 printf("Socket: %d\n", fd); 
 
  // Do a bind of that socket 

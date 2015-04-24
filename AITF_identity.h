@@ -1,9 +1,10 @@
 #pragma once
 #include <tins/tins.h>
 #include <cassert>
-#include "RREntry.h"
+#include "RRFilter.h"
 
 using namespace Tins;
+using namespace std;
 
 class AITF_identity{
 public:
@@ -15,10 +16,11 @@ public:
 
 	vector<RRFilter> filters();
 	IP::address_type victim();
-	
+	int pointer();
 
 private:
-	IP::address_type victim;
-	vector<RRFilter> filters;
+	IP::address_type _victim;
+	vector<RRFilter> _filters;
+	int _pointer;
 
-}
+};

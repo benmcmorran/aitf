@@ -15,5 +15,13 @@ public:
 	// Used to manipulate the AITF filter (WRITE AND READ)
 	void addFilter(RRFilter filter);
 	void removeFilter(RRFilter filter);
+	IP:address_type address();
+	uint64_t random_number_1();
+	uint64_t random_number_2();
+
+private:
+	IP::address_type _address;
+	uint64_t _random_number_1;
+	uint64_t _random_number_2;
 
 }

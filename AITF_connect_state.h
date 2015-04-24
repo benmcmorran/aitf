@@ -3,6 +3,7 @@
 #include <cassert>
 
 using namespace Tins;
+using namespace std;
 
 class AITF_connect_state{
 public:
@@ -17,8 +18,8 @@ public:
 	void set_nonce2(uint64_t n2);
 
 private:
-	int current;
-	uint64_t nonce1;
-	uint64_t nonce2;
+	int _current;
+	uint64_t _nonce1;
+	uint64_t _nonce2;
 
-}
+};

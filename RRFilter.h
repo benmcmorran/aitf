@@ -18,8 +18,8 @@ public:
 	int match(RREntry entry);
 
 private:
-	uint8_t match_type;
+	uint8_t _match_type;
 	IP::address_type _address;
 	uint64_t _random_number_1;
 	uint64_t _random_number_2;
-}
+};
