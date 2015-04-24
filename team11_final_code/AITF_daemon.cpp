@@ -48,21 +48,59 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 
 void AITF_request(AITF_packet pack){
 	vector<NetworkInterface> ip_addrs = NetworkInterface::all();
+	IP::address_type addr;
 	int x;
 	int y;
 	for (x = ip_addrs.size()-1; x >= 0; x--){
 		if (ip_addrs[x].addresses().ip_addr == pack.identity().filters()[pack.identity().pointer()].addr){
+			addr = ip_addrs[x].addresses().ip_addr;
+			break;
+		}
+	}
 
+	RREntry rent = pack.identity().filters()[pack.identity().pointer()];
+
+	//Check the random numbers
+	if (getRandomValue(rent.dest_addr,1) == rent.random_number_1() || getRandomValue(rent.dest_addr,1) == rent.random_number_2()){
+		// SEND VERIFY
+		AITF_connect_state cstate = AITF_connect_state(pack);
+		istate_table[pack.identity()] = cstate;
+		AITF_packet verify = AITF_packet(AITF_type.verify, pack.nonce1(), generateNonce(), pack.identity());
+
+		send_AITF_message(verify, verify.identity().dest_addr);
+	}else{
+		// SEND CORRECT
+		rent.set_random_number_1(generateRandomValue(rent.dest_addr, 1));
+		rent.set_random_number_2(generateRandomValue(rent.dest_addr, 2));
+		AITF_packet correct = AITF_packet(AITF_type.correct, pack.nonce1(), 0, pack.identity());
+
+		send_AITF_message(correct, correct.identity().dest_addr);
+	}
+
+
+	return;
+}
+
+void AITF_verify(AITF_packet pack){
+	if (ostate_table.find(pack.identity())){
+		AITF_connect_state cstate = ostate_table[pack.identity()];
+		if (cstate.nonce1() == pack.nonce1()){
+			AITF_packet block = AITF_packet(AITF_type.block, 0, pack.nonce2(), pack.identity());
+
+			send_AITF_message(block, pack.identity().filters()[cstate.currentRoute()].addr);
 		}
 	}
 	return;
 }
 
-void AITF_verify(AITF_packet pack){
-	return;
-}
-
 void AITF_correct(AITF_packet pack){
+	if (ostate_table.find(pack.identity())){
+		AITF_connect_state cstate = ostate_table[pack.identity()];
+		if (cstate.nonce1() == pack.nonce1()){
+			RREntry rent = pack.identity().filters()[cstate.currentRoute()].set_match_type(2);
+			AITF_enforce(pack);
+		}
+	}
 	return;
 }
 
@@ -71,6 +109,7 @@ void AITF_block(AITF_packet pack){
 }
 
 void AITF_cease(AITF_packet pack){
+	// NEVER CEASE! MARCH FORWARDS!
 	return;
 }
 
