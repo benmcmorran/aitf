@@ -15,9 +15,9 @@ public:
 	void addRRFilter(RRFilter rfil);
 	void serialize(uint8_t *data, uint32_t size) const;
 
-	vector<RRFilter> filters();
-	IP::address_type victim();
-	uint32_t pointer();
+	vector<RRFilter> filters() const;
+	IP::address_type victim() const;
+	uint32_t pointer() const;
 
 private:
 	IP::address_type _victim;

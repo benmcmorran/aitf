@@ -12,14 +12,15 @@
 #include "HostMapping.h"
 #include "AITF_packet.h"
 #include "AITF_connect_state.h"
+#include "AITF_identity_hash.h"
 
 using namespace Tins;
 using namespace std;
 
 extern HostMapping host;
 
-unordered_map<AITF_identity, AITF_connect_state> ostate_table();
-unordered_map<AITF_identity, AITF_connect_state> istate_table();
+unordered_map<AITF_identity, AITF_connect_state> ostate_table;
+unordered_map<AITF_identity, AITF_connect_state> istate_table;
 
 typedef enum{
 	ENFORCE, REQUEST, VERIFY, CORRECT, BLOCK, CEASE
