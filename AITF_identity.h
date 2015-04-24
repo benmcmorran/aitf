@@ -8,7 +8,8 @@ using namespace std;
 
 class AITF_identity{
 public:
-	AITF_identity(vector<RRFilter> rfilters, IP::address_type victim, int pointer);
+	AITF_identity();
+	AITF_identity(vector<RRFilter> rfilters, IP::address_type victim, uint32_t pointer);
 	AITF_identity(const uint8_t *data, uint32_t size);
 
 	void addRRFilter(RRFilter rfil);
@@ -16,11 +17,11 @@ public:
 
 	vector<RRFilter> filters();
 	IP::address_type victim();
-	int pointer();
+	uint32_t pointer();
 
 private:
 	IP::address_type _victim;
 	vector<RRFilter> _filters;
-	int _pointer;
+	uint32_t _pointer;
 
 };

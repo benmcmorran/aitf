@@ -16,6 +16,7 @@ public:
 	void set_currentRoute(int x);
 	void set_nonce1(uint64_t n1);
 	void set_nonce2(uint64_t n2);
+	void inc_currentRoute();
 
 private:
 	int _current;

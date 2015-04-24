@@ -53,7 +53,7 @@ unsigned int    CreateAThread( void *ThreadStartAddress, int *data )
     ReturnCode = pthread_attr_setdetachstate( &Attribute, PTHREAD_CREATE_JOINABLE );
     if ( ReturnCode != 0 )
         printf( "Error in pthread_attr_setdetachstate in CreateAThread\n" );
-    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, (void *)*data );
+    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, data );
     if ( ReturnCode == EINVAL )                        /* Will return 0 if successful */
         printf( "ERROR doing pthread_create - The Thread, attr or sched param is wrong\n");
     if ( ReturnCode == EAGAIN )                        /* Will return 0 if successful */

@@ -16,9 +16,6 @@ AITF_packet::AITF_packet(const uint8_t *data, uint32_t size){
 	_nonce2 = ntohll(*((uint64_t*)data));
 	data += 8;
 
-	_size = ntohll(*((uint32_t*)data));
-	data += 4;
-
 	//TODO:: IMPLEMENT
 }
 
@@ -34,6 +31,6 @@ uint64_t AITF_packet::nonce2(){
 	return _nonce2;
 }
 
-vector<RRFilter> AITF_packet::filter_table(){
-	return fitlers;
+AITF_identity AITF_packet::identity(){
+	return aitf_info;
 }
