@@ -5,10 +5,16 @@
 #include <asm/errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <malloc.h>
 #include <string.h>
 #include <utility>
 #include <map>
+#include <sys/types.h>
+#include <netdb.h>
+#include <string.h>
+#include <unistd.h>
+#include <assert.h>
 
 
 #include <tins/tins.h>
@@ -47,6 +53,49 @@ uint64_t generateNonce(){
 void send_AITF_message(AITF_packet pack, IP::address_type addr){
 	uint8_t* data = (uint8_t*)malloc(pack.packet_size());
 	pack.serialize(data, pack.packet_size());
+
+
+	int status, sd, len, s, r;
+	struct addrinfo hints;
+	struct addrinfo *servinfo, *p; // will point to the results
+
+	const char *url, *port;
+
+	port = "11467";
+	url = addr.to_string().c_str();
+
+	memset(&hints, 0 , sizeof(hints)); // make sure the stuct is empty
+	hints.ai_family = AF_INET; // only IPv4
+	hints.ai_socktype = SOCK_DGRAM; // Use a UDP connection
+	// getaddrinfo() - fills out an address structure for us with the destination server's info
+	if((status = getaddrinfo(url, port, &hints, &servinfo)) != 0) {
+		fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
+		return;
+	}
+
+	// loop through all results and connect to the first one we can
+	for(p = servinfo; p != NULL; p = p->ai_next) 
+	{
+		if ((sd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+	 	 perror("client: socket");
+	 	 continue;
+		}
+		if((connect(sd, servinfo->ai_addr, servinfo->ai_addrlen)) < 0) {
+		  close(sd);
+	 	 	perror("client: connect");
+		  continue;
+		}
+		break;
+	}
+	if (p == NULL) {
+		fprintf(stderr, "client: failed to connect\n");
+		return;
+	}
+	freeaddrinfo(servinfo);
+
+	s = send(sd, data, pack.packet_size(), 0);
+
+	close(sd);
 
 	return;
 }
@@ -181,7 +230,7 @@ void AITF_daemon(void* data){
 	unsigned int client = sizeof(client_addr);
 	     
 	// Establish the socket that will be used for listening 
-	fd = socket(AF_INET, SOCK_STREAM, 0); 
+	fd = socket(AF_INET, SOCK_DGRAM, 0); 
 	printf("Socket: %d\n", fd); 
 
 	// Do a bind of that socket 
