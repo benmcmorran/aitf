@@ -68,6 +68,12 @@ void RRFilter::set_match_type(uint8_t mt){
 	_match_type = mt;
 }
 
+string RRFilter::to_string(){
+	stringstream data;
+	data << "MT: " << match_type() << " R1: " << random_number_1() << " R2: " << random_number_2() << " ADDR: " << address();
+	return data.str();
+}
+
 bool RRFilter::operator==(RRFilter i) const{
 	if (_address == i.address() && _random_number_1 == i.random_number_1() && _random_number_2 == i.random_number_2()){
 		return true;

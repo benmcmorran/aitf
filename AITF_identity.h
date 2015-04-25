@@ -2,6 +2,7 @@
 #include <tins/tins.h>
 #include <cassert>
 #include "RRFilter.h"
+#include <sstream> 
 
 using namespace Tins;
 using namespace std;
@@ -21,6 +22,8 @@ public:
 	uint32_t size() const;
 
 	int packet_size();
+
+	string to_string();
 
 	bool operator == ( const AITF_identity& i) const;
 	bool operator < ( const AITF_identity& other) const;
