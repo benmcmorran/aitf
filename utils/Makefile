@@ -1,8 +1,8 @@
 all: server client
 server: server.o
-	gcc server.o -o server -lpthread
+	gcc server.o -o server
 server.o: server.c
-	gcc -c server.c -lpthread
+	gcc -c server.c
 client: flow.o
 	gcc flow.o -o flow
 flow.o: flow.c
