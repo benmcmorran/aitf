@@ -85,7 +85,7 @@ void send_AITF_message(AITF_packet pack, IP::address_type addr){
 	 	 continue;
 		}
 		if((connect(sd, servinfo->ai_addr, servinfo->ai_addrlen)) < 0) {
-		  close(sd);
+		  	close(sd);
 	 	 	perror("client: connect");
 		  continue;
 		}
@@ -139,7 +139,7 @@ void AITF_request(AITF_packet pack){
 		}
 	}
 
-	RRFilter &rent = pack.identity().filters()[pack.identity().pointer()];
+	RRFilter rent = pack.identity().filters()[pack.identity().pointer()];
 
 	//Check the random numbers
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
@@ -150,10 +150,11 @@ void AITF_request(AITF_packet pack){
 
 		send_AITF_message(verify, verify.identity().victim());
 	}else{
+		vector<RRFilter> nfilter = pack.identity().filters();
 		// SEND CORRECT
-		rent.set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
-		rent.set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
-		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity());
+		nfilter[pack.identity().pointer()].set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
+		nfilter[pack.identity().pointer()].set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
+		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity().pointer(), nfilter, pack.identity().victim(), nfilter.size());
 
 		send_AITF_message(correct, correct.identity().victim());
 	}
