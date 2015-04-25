@@ -139,7 +139,7 @@ void AITF_request(AITF_packet pack){
 		}
 	}
 
-	RRFilter rent = pack.identity().filters()[pack.identity().pointer()];
+	RRFilter &rent = pack.idRef().filters()[pack.idRef().pointer()];
 
 	//Check the random numbers
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
@@ -151,8 +151,9 @@ void AITF_request(AITF_packet pack){
 		send_AITF_message(verify, verify.identity().victim());
 	}else{
 		// SEND CORRECT
-		rent.set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
+		rent.set_random_number_1(1234);//generateRandomValue(pack.identity().victim(), 1));
 		rent.set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
+		printf("Rent rand val: %Ld, rand val in list: %Ld\n", rent.random_number_1(), pack.idRef().filters()[pack.idRef().pointer()].random_number_1());
 		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity());
 
 		send_AITF_message(correct, correct.identity().victim());
@@ -203,22 +204,22 @@ void AITF_action(thread_data* data){
 
 	switch(apacket.packet_type())
 	{
-		case 1:
+		case 0:
 			AITF_enforce(apacket, data->addr);
 			break;
-		case 2:
+		case 1:
 			AITF_request(apacket);
 			break;
-		case 3:
+		case 2:
 			AITF_verify(apacket);
 			break;
-		case 4:
+		case 3:
 			AITF_correct(apacket);
 			break;
-		case 5:
+		case 4:
 			AITF_block(apacket);
 			break;
-		case 6:
+		case 5:
 		default:
 			AITF_cease(apacket);
 	}
