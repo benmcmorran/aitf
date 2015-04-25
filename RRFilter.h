@@ -1,9 +1,12 @@
 #pragma once
 #include <tins/tins.h>
 #include <cassert>
+#include <string.h>
+#include <sstream> 
 #include "RREntry.h"
 
 using namespace Tins;
+using namespace std;
 
 class RRFilter{
 public:
@@ -23,6 +26,7 @@ public:
 	void set_match_type(uint8_t mt);
 	int match(RREntry entry);
 
+	string to_string();
 	bool operator==(RRFilter i) const;
 
 private:

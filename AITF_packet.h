@@ -3,6 +3,7 @@
 #include <cassert>
 #include "RREntry.h"
 #include "AITF_identity.h"
+#include <sstream> 
 
 using namespace Tins;
 using namespace std;
@@ -21,6 +22,8 @@ public:
 	uint64_t nonce1() const;
 	uint64_t nonce2() const;
 	int packet_size();
+
+	string to_string();
 
 private:
 	uint8_t _packet_type;

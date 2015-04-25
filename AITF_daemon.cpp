@@ -51,6 +51,10 @@ uint64_t generateNonce(){
 }
 
 void send_AITF_message(AITF_packet pack, IP::address_type addr){
+
+	cout << "SENDING PACKET: DEST: " << addr.to_string();
+	cout << pack.to_string();
+
 	uint8_t* data = (uint8_t*)malloc(pack.packet_size());
 	pack.serialize(data, pack.packet_size());
 
@@ -194,6 +198,8 @@ void AITF_cease(AITF_packet pack){
 void AITF_action(thread_data* data){
 
 	AITF_packet apacket = AITF_packet((uint8_t*)data->buff, data->size);
+
+	cout << apacket.to_string();
 
 	switch(apacket.packet_type())
 	{

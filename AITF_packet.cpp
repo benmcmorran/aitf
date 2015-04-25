@@ -51,3 +51,9 @@ AITF_identity AITF_packet::identity() const{
 int AITF_packet::packet_size(){
 	return sizeof(packet_type()) + sizeof(nonce1()) + sizeof(nonce2()) + identity().packet_size();
 }
+
+string AITF_packet::to_string(){
+	stringstream data;
+	data << "PT: " << packet_type() << " N1: " << nonce1() << " N2: " << nonce2() << " ID: " << identity().to_string();
+	return data.str();
+}

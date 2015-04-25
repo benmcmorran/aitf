@@ -9,7 +9,7 @@ class AITF_connect_state{
 public:
 	AITF_connect_state();
 	AITF_connect_state(int c, uint64_t n1, uint64_t n2);
-	AITF_connect_state(AITF_connect_state (* const)() );
+	//AITF_connect_state(AITF_connect_state (* const)() );
 
 	uint64_t nonce1();
 	uint64_t nonce2();

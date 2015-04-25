@@ -69,3 +69,15 @@ bool AITF_identity::operator==(const AITF_identity& i) const{
 bool AITF_identity::operator < ( const AITF_identity& other) const{
 	return _victim < other.victim();
 }
+
+string AITF_identity::to_string(){
+	stringstream data;
+	data << "V: " << victim();
+	data << " P: " << pointer();
+	data << " S: " << size();
+	data << "RRFTABLE: \n";
+	for (int i = 0; i < filters().size(); i++){
+		data << filters().at(i).to_string() << "\n";
+	}
+	return data.str();
+}
