@@ -19,6 +19,9 @@ public:
 	IP::address_type victim() const;
 	uint32_t pointer() const;
 
+	bool operator == ( const AITF_identity& i) const;
+	bool operator < ( const AITF_identity& other) const;
+
 private:
 	IP::address_type _victim;
 	vector<RRFilter> _filters;

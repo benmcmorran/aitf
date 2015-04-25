@@ -20,6 +20,8 @@ public:
 	void set_match_type(uint8_t mt);
 	int match(RREntry entry);
 
+	bool operator==(RRFilter i) const;
+
 private:
 	uint8_t _match_type;
 	IP::address_type _address;
