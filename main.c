@@ -15,6 +15,8 @@
 #include "HostMappingReader.h"
 #include "HostMapping.h"
 
+int intializeAITF(void*);
+
 using namespace Tins;
 using namespace std;
 
@@ -118,6 +120,8 @@ void usage() {
 
 int main(int argc, char **argv)
 {
+    intializeAITF(NULL);
+
     // Configure libtins to recognize the RR protocol
     // RR uses the IP protocol number 253 reserved for testing
     Allocators::register_allocator<IP, RR>(253);
