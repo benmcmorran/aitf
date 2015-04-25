@@ -4,7 +4,19 @@ Andrew Botelho
 Iveri Prangishvili
 */
 
-#include "web_server.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <sys/resource.h>
+#include <asm/errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <malloc.h>
+#include <string.h>
+
+int             WorkThread( void * );            
+unsigned int    CreateAThread( void *, int *);   
+
 #define TOTAL_RECV 25000000
 int counter = 0;
 main(int argc, char **argv)
