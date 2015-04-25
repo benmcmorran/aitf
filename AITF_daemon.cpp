@@ -139,7 +139,7 @@ void AITF_request(AITF_packet pack){
 		}
 	}
 
-	RRFilter &rent = pack.idRef().filters()[pack.idRef().pointer()];
+	RRFilter &rent = pack.identity().filters()[pack.identity().pointer()];
 
 	//Check the random numbers
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
@@ -151,9 +151,8 @@ void AITF_request(AITF_packet pack){
 		send_AITF_message(verify, verify.identity().victim());
 	}else{
 		// SEND CORRECT
-		rent.set_random_number_1(1234);//generateRandomValue(pack.identity().victim(), 1));
+		rent.set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
 		rent.set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
-		printf("Rent rand val: %Ld, rand val in list: %Ld\n", rent.random_number_1(), pack.idRef().filters()[pack.idRef().pointer()].random_number_1());
 		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity());
 
 		send_AITF_message(correct, correct.identity().victim());
