@@ -9,18 +9,18 @@ using namespace std;
 
 class AITF_packet{
 public:
-	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, vector<RRFilter> rfilters, IP::address_type dest_addr);
+	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, vector<RRFilter> rfilters, IP::address_type dest_addr, uint32_t size);
 	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, AITF_identity info);
 	AITF_packet(const uint8_t *data, uint32_t size);
 
 	void addRRFilter(RRFilter rfil);
 	void serialize(uint8_t *data, uint32_t size) const;
-	AITF_identity identity();
+	AITF_identity identity() const;
 
-	uint8_t packet_type();
-	uint64_t nonce1();
-	uint64_t nonce2();
-	uint32_t size();
+	uint8_t packet_type() const;
+	uint64_t nonce1() const;
+	uint64_t nonce2() const;
+	int packet_size();
 
 private:
 	uint8_t _packet_type;

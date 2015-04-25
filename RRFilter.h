@@ -9,6 +9,9 @@ class RRFilter{
 public:
 	RRFilter(uint8_t mtype, RREntry data);
 	RRFilter(uint8_t mtype, IP::address_type addr, uint64_t ran1, uint64_t ran2);
+	RRFilter(const uint8_t* data, uint32_t size);
+
+	void serialize(uint8_t *data, uint32_t size) const;
 
 	const IP::address_type address() const;
 	uint8_t match_type() const;

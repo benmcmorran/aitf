@@ -14,6 +14,32 @@ RRFilter::RRFilter(uint8_t mtype, IP::address_type addr, uint64_t ran1, uint64_t
 	_random_number_2 = ran2;
 }
 
+RRFilter::RRFilter(const uint8_t* data, uint32_t size){
+	_match_type = *data;
+	data += 1;
+
+	_address = IP::address_type(*(uint32_t*) data);
+	data += 4;
+
+	_random_number_1 = (*(uint64_t*) data);
+	data += 8;
+
+	_random_number_2 = (*(uint64_t*)data);
+}
+
+void RRFilter::serialize(uint8_t *data, uint32_t size) const{
+	assert(size >= 21);
+
+	*data = match_type();
+	data += 1;
+
+	*(uint32_t*)data = (uint32_t)address();
+	data += 4;
+	*(uint64_t*)data = random_number_1();
+	data += 8;
+	*(uint64_t*)data = random_number_2();
+}
+
 const IP::address_type RRFilter::address() const {
 	return _address;
 }

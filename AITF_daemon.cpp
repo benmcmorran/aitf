@@ -45,6 +45,9 @@ uint64_t generateNonce(){
 }
 
 void send_AITF_message(AITF_packet pack, IP::address_type addr){
+	uint8_t* data = (uint8_t*)malloc(pack.packet_size());
+	pack.serialize(data, pack.packet_size());
+
 	return;
 }
 
