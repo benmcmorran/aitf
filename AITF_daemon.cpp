@@ -7,20 +7,23 @@
 #include <netinet/in.h>
 #include <malloc.h>
 #include <string.h>
-#include <unordered_map>
+#include <utility>
+#include <map>
+
+
 #include <tins/tins.h>
 #include "HostMapping.h"
 #include "AITF_packet.h"
 #include "AITF_connect_state.h"
-#include "AITF_identity_hash.h"
+//#include "AITF_identity_hash.h"
 
 using namespace Tins;
 using namespace std;
 
 extern HostMapping host;
 
-unordered_map<AITF_identity, AITF_connect_state> ostate_table;
-unordered_map<AITF_identity, AITF_connect_state> istate_table;
+map<AITF_identity, AITF_connect_state> ostate_table;
+map<AITF_identity, AITF_connect_state> istate_table;
 
 typedef enum{
 	ENFORCE, REQUEST, VERIFY, CORRECT, BLOCK, CEASE
@@ -31,6 +34,8 @@ typedef struct thread_data{
 	char buff[1500];
 	ssize_t size;
 } thread_data;
+
+
 
 // ///////////////////////////////////////////////////////////////////////////////
 //           CreateAThread
@@ -54,7 +59,7 @@ unsigned int    CreateAThread( void *ThreadStartAddress, int *data )
     ReturnCode = pthread_attr_setdetachstate( &Attribute, PTHREAD_CREATE_JOINABLE );
     if ( ReturnCode != 0 )
         printf( "Error in pthread_attr_setdetachstate in CreateAThread\n" );
-    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, data );
+    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, (void *)* data );
     if ( ReturnCode == EINVAL )                        /* Will return 0 if successful */
         printf( "ERROR doing pthread_create - The Thread, attr or sched param is wrong\n");
     if ( ReturnCode == EAGAIN )                        /* Will return 0 if successful */
@@ -87,11 +92,11 @@ uint64_t generateRandomValue(IP::address_type addr, int x){
 
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
 	if (host.isEnabledHost(addr)){
-		if (ostate_table.find(pack.identity())){
+		if (ostate_table.count(pack.identity())){
 			AITF_escalation(pack);
 		}else{
 			AITF_connect_state cstate();
-			ostate_table.emplace(pack.identity(), cstate);
+			ostate_table.insert(std::make_pair(pack.identity(), cstate));
 			AITF_packet request((uint8_t)REQUEST, generateNonce(), (uint64_t)0, pack.identity());
 
 			if (request.identity().filters().size() >= 2){
@@ -122,7 +127,7 @@ void AITF_request(AITF_packet pack){
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
 		// SEND VERIFY
 		AITF_connect_state cstate();
-		istate_table.emplace(pack.identity(), cstate);
+		istate_table[pack.identity()] = cstate;
 		AITF_packet verify((uint8_t)VERIFY, pack.nonce1(), generateNonce(), pack.identity());
 
 		send_AITF_message(verify, verify.identity().victim());
@@ -140,7 +145,7 @@ void AITF_request(AITF_packet pack){
 }
 
 void AITF_verify(AITF_packet pack){
-	if (ostate_table.find(pack.identity())){
+	if (ostate_table.count(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
 			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.identity());
@@ -152,7 +157,7 @@ void AITF_verify(AITF_packet pack){
 }
 
 void AITF_correct(AITF_packet pack){
-	if (ostate_table.find(pack.identity())){
+	if (ostate_table.count(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
 			RRFilter rent = pack.identity().filters()[cstate.currentRoute()];
