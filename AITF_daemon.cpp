@@ -20,7 +20,7 @@
 using namespace Tins;
 using namespace std;
 
-extern HostMapping host;
+extern HostMapping hosts;
 
 map<AITF_identity, AITF_connect_state> ostate_table;
 map<AITF_identity, AITF_connect_state> istate_table;
@@ -34,44 +34,6 @@ typedef struct thread_data{
 	char buff[1500];
 	ssize_t size;
 } thread_data;
-
-
-
-// ///////////////////////////////////////////////////////////////////////////////
-//           CreateAThread
-//    Set up a new thread for the caller.  We need to be passed here:
-//    Arg1:  The start address of the new thread
-//    Arg2:  The address of an int or structure containing data for the new thread
-//
-//    We return the Thread Handle to the caller.
-//    We print lots of errors if something goes wrong.  But we return anyway
-// ///////////////////////////////////////////////////////////////////////////////
-
-unsigned int    CreateAThread( void *ThreadStartAddress, int *data )
-{
-    int                  ReturnCode;
-    pthread_t            Thread;
-    pthread_attr_t       Attribute;
-
-    ReturnCode = pthread_attr_init( &Attribute );
-    if ( ReturnCode != 0 )
-        printf( "Error in pthread_attr_init in CreateAThread\n" );
-    ReturnCode = pthread_attr_setdetachstate( &Attribute, PTHREAD_CREATE_JOINABLE );
-    if ( ReturnCode != 0 )
-        printf( "Error in pthread_attr_setdetachstate in CreateAThread\n" );
-    ReturnCode = pthread_create( &Thread, &Attribute, ThreadStartAddress, (void *)* data );
-    if ( ReturnCode == EINVAL )                        /* Will return 0 if successful */
-        printf( "ERROR doing pthread_create - The Thread, attr or sched param is wrong\n");
-    if ( ReturnCode == EAGAIN )                        /* Will return 0 if successful */
-        printf( "ERROR doing pthread_create - Resources not available\n");
-    if ( ReturnCode == EPERM )                        /* Will return 0 if successful */
-        printf( "ERROR doing pthread_create - No privileges to do this sched type & prior.\n");
-
-    ReturnCode = pthread_attr_destroy( &Attribute );
-    if ( ReturnCode )                                    /* Will return 0 if successful */
-        printf( "Error in pthread_mutexattr_destroy in CreateAThread\n" );
-    return( (unsigned int)Thread );
-}                            // End of CreateAThread
 
 
 void AITF_escalation(AITF_packet pack){
@@ -91,11 +53,11 @@ uint64_t generateRandomValue(IP::address_type addr, int x){
 }
 
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
-	if (host.isEnabledHost(addr)){
+	if (hosts.isEnabledHost(addr)){
 		if (ostate_table.count(pack.identity())){
 			AITF_escalation(pack);
 		}else{
-			AITF_connect_state cstate();
+			AITF_connect_state cstate(0,0,0);
 			ostate_table.insert(std::make_pair(pack.identity(), cstate));
 			AITF_packet request((uint8_t)REQUEST, generateNonce(), (uint64_t)0, pack.identity());
 
@@ -126,7 +88,7 @@ void AITF_request(AITF_packet pack){
 	//Check the random numbers
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
 		// SEND VERIFY
-		AITF_connect_state cstate();
+		AITF_connect_state cstate(0,0,0);
 		istate_table[pack.identity()] = cstate;
 		AITF_packet verify((uint8_t)VERIFY, pack.nonce1(), generateNonce(), pack.identity());
 
@@ -177,7 +139,7 @@ void AITF_cease(AITF_packet pack){
 	return;
 }
 
-void AITF_request(thread_data* data){
+void AITF_action(thread_data* data){
 
 	AITF_packet apacket = AITF_packet((uint8_t*)data->buff, data->size);
 
@@ -237,10 +199,11 @@ void AITF_daemon(void* data){
 		tsdata =  recvfrom(fdlisten, buff->buff, 1500, 0, (struct sockaddr *)&client_addr, &client);
 
 		if (tsdata > 0){
-			uint32_t conn_addr = client_addr.s_addr;
+			uint32_t conn_addr = client_addr.sin_addr.s_addr;
 			buff->addr = IP::address_type(conn_addr);
 			buff->size = tsdata;
-			out = CreateAThread( (void *)(*AITF_request),(int*) buff); 
+			pthread_t helper;
+			pthread_create(&helper, NULL, (void*(*)(void*))AITF_action, buff);
 		}else{
 			free(buff);
 		}
@@ -249,6 +212,7 @@ void AITF_daemon(void* data){
 
 int intializeAITF(void* filtertable){
 	int aitf_thread = 0;
-
-	aitf_thread = CreateAThread( (void *)(*AITF_daemon), (int*)filtertable); 
+	pthread_t helper;
+	pthread_create(&helper, NULL, (void*(*)(void*))AITF_daemon, filtertable);
+ 
 }

@@ -3,6 +3,14 @@
 AITF_connect_state::AITF_connect_state():
 	_current(1),_nonce1(0),_nonce2(0){}
 
+AITF_connect_state::AITF_connect_state(int c, uint64_t n1, uint64_t n2):
+	_current(c), _nonce1(n1), _nonce2(n2){}
+
+AITF_connect_state::AITF_connect_state(AITF_connect_state (* const)() )
+{
+
+}
+
 int AITF_connect_state::currentRoute(){
 	return _current;
 }

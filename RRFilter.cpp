@@ -30,6 +30,18 @@ uint64_t RRFilter::random_number_2() const{
 	return _random_number_2;
 }
 
+void RRFilter::set_random_number_1(uint64_t r1){
+	_random_number_1 = r1;
+}
+
+void RRFilter::set_random_number_2(uint64_t r2){
+	_random_number_2 = r2;
+}
+
+void RRFilter::set_match_type(uint8_t mt){
+	_match_type = mt;
+}
+
 bool RRFilter::operator==(RRFilter i) const{
 	if (_address == i.address() && _random_number_1 == i.random_number_1() && _random_number_2 == i.random_number_2()){
 		return true;
