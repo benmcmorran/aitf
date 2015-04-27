@@ -82,10 +82,22 @@ bool RRFilter::operator==(RRFilter i) const{
 	}
 }
 
-int RRFilter::match(RREntry entry){
-	if (entry.address() == address()){
-		return 1;
-	}else{
+int RRFilter::match(RREntry entry, IP::address_type addr){
+	if (addr == address() && match_type() == 1){
 		return 0;
+	}
+
+	if (entry.address() == address()){
+		if (match_type() == 0){
+			return 0;
+		}else{
+			if (random_number_1() == entry.random_number_1() || random_number_2() == entry.random_number_1()){
+				return 1;
+			}else{
+				return 0;
+			}	
+		}
+	}else{
+		return 2;
 	}
 }

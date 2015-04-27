@@ -15,7 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
-
+#include <linux/netfilter.h>  
 
 #include <tins/tins.h>
 #include "HostMapping.h"
@@ -31,6 +31,8 @@ extern HostMapping hosts;
 map<AITF_identity, AITF_connect_state> ostate_table;
 map<AITF_identity, AITF_connect_state> istate_table;
 
+vector<RRFilter> block_rules;
+
 typedef enum{
 	ENFORCE, REQUEST, VERIFY, CORRECT, BLOCK, CEASE
 } AITF_type;
@@ -42,12 +44,22 @@ typedef struct thread_data{
 } thread_data;
 
 
-void AITF_escalation(AITF_packet pack){
-	return;
-}
-
 uint64_t generateNonce(){
 	return 1232;
+}
+
+int block_verdict(RREntry r, IP::address_type addr){
+	int verdict;
+	for (int i = 0; i < block_rules.size(); i++){
+		verdict = block_rules.at(i).match(r, addr);
+		if (verdict == 1){
+			return NF_ACCEPT;
+		}
+		if (verdict == 0){
+			return NF_DROP;
+		}
+	}
+	return NF_ACCEPT;
 }
 
 void send_AITF_message(AITF_packet pack, IP::address_type addr){
@@ -108,6 +120,21 @@ uint64_t generateRandomValue(IP::address_type addr, int x){
 	return 12345;
 }
 
+
+void AITF_escalation(AITF_packet pack){
+	uint64_t nonce1 = generateNonce();
+	ostate_table[pack.identity()].set_nonce1(nonce1);
+
+	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, pack.pointer()+1, pack.identity().filters(), pack.identity().victim(), pack.identity().size());
+
+	if (request.identity().filters().size() >= pack.pointer()+1){
+		send_AITF_message(request, request.identity().filters()[pack.pointer()+1].address());
+	}else{
+		ostate_table.erase(request.identity());
+	}
+	return;
+}
+
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
 	if (hosts.isEnabledHost(addr)){
 		if (ostate_table.count(pack.identity())){
@@ -115,7 +142,11 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 		}else{
 			AITF_connect_state cstate(0,0,0);
 			ostate_table.insert(std::make_pair(pack.identity(), cstate));
-			AITF_packet request((uint8_t)REQUEST, generateNonce(), (uint64_t)0, pack.identity());
+			
+			uint64_t nonce1 = generateNonce();
+			ostate_table[pack.identity()].set_nonce1(nonce1);
+
+			AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, (uint32_t)1, pack.identity().filters(), pack.identity().victim(), pack.identity().size());
 
 			if (request.identity().filters().size() >= 2){
 				send_AITF_message(request, request.identity().filters()[1].address());
@@ -133,28 +164,33 @@ void AITF_request(AITF_packet pack){
 	int x;
 	int y;
 	for (x = ip_addrs.size()-1; x >= 0; x--){
-		if (ip_addrs[x].addresses().ip_addr == pack.identity().filters()[pack.identity().pointer()].address()){
+		if (ip_addrs[x].addresses().ip_addr == pack.identity().filters()[pack.pointer()].address()){
 			addr = ip_addrs[x].addresses().ip_addr;
 			break;
 		}
 	}
 
-	RRFilter rent = pack.identity().filters()[pack.identity().pointer()];
+	RRFilter rent = pack.identity().filters()[pack.pointer()];
 
 	//Check the random numbers
 	if (generateRandomValue(pack.identity().victim(),1) == rent.random_number_1() || generateRandomValue(pack.identity().victim(),1) == rent.random_number_2()){
 		// SEND VERIFY
 		AITF_connect_state cstate(0,0,0);
 		istate_table[pack.identity()] = cstate;
-		AITF_packet verify((uint8_t)VERIFY, pack.nonce1(), generateNonce(), pack.identity());
+
+		// SET NONCE2
+		uint64_t nonce2 = generateNonce();
+		istate_table[pack.identity()].set_nonce2(nonce2);
+
+		AITF_packet verify((uint8_t)VERIFY, pack.nonce1(), nonce2, pack.pointer(), pack.identity());
 
 		send_AITF_message(verify, verify.identity().victim());
 	}else{
 		vector<RRFilter> nfilter = pack.identity().filters();
 		// SEND CORRECT
-		nfilter[pack.identity().pointer()].set_random_number_1(generateRandomValue(pack.identity().victim(), 1));
-		nfilter[pack.identity().pointer()].set_random_number_2(generateRandomValue(pack.identity().victim(), 2));
-		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), 0, pack.identity().pointer(), nfilter, pack.identity().victim(), nfilter.size());
+		uint64_t r1 = generateRandomValue(pack.identity().victim(), 1);
+		uint64_t r2 = generateRandomValue(pack.identity().victim(), 2);
+		AITF_packet correct = AITF_packet((uint8_t)CORRECT, pack.nonce1(), (uint64_t)0, pack.pointer(), r1, r2, pack.identity());
 
 		send_AITF_message(correct, correct.identity().victim());
 	}
@@ -167,7 +203,7 @@ void AITF_verify(AITF_packet pack){
 	if (ostate_table.count(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
-			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.identity());
+			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.pointer(), pack.identity());
 
 			send_AITF_message(block, pack.identity().filters()[cstate.currentRoute()].address());
 		}
@@ -179,15 +215,34 @@ void AITF_correct(AITF_packet pack){
 	if (ostate_table.count(pack.identity())){
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
-			RRFilter rent = pack.identity().filters()[cstate.currentRoute()];
-			rent.set_match_type(2);
-			AITF_enforce(pack, pack.identity().victim());
+			vector<RRFilter> rent = pack.identity().filters();
+			rent[pack.pointer()].set_random_number_1(pack.crn1());
+			rent[pack.pointer()].set_random_number_2(pack.crn2());
+			rent[pack.pointer()].set_match_type(2);
+			AITF_packet enforce = AITF_packet((uint8_t)ENFORCE, (uint64_t)0, (uint64_t)0, (uint32_t)0, rent, pack.identity().victim(), rent.size());
+
+			ostate_table.erase(pack.identity());
+			ostate_table[enforce.identity()] = cstate;
+
+			AITF_enforce(enforce, pack.identity().victim());
 		}
 	}
 	return;
 }
 
 void AITF_block(AITF_packet pack){
+	if (istate_table.count(pack.identity())){
+		AITF_connect_state cstate = istate_table.at(pack.identity());
+		if (cstate.nonce2() == pack.nonce2()){
+			vector<RRFilter> rent = pack.identity().filters();
+
+			RRFilter block = rent.at(pack.pointer()-1);
+			block_rules.push_back(block);
+
+			istate_table.erase(pack.identity());
+		}
+	}
+
 	return;
 }
 

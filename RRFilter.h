@@ -24,7 +24,7 @@ public:
 	void set_random_number_1(uint64_t n1);
 	void set_random_number_2(uint64_t n2);
 	void set_match_type(uint8_t mt);
-	int match(RREntry entry);
+	int match(RREntry entry, IP::address_type addr);
 
 	string to_string();
 	bool operator==(RRFilter i) const;
