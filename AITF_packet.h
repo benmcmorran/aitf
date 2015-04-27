@@ -10,6 +10,7 @@ using namespace std;
 
 class AITF_packet{
 public:
+	AITF_packet();
 	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, vector<RRFilter> rfilters, IP::address_type dest_addr, uint32_t size);
 	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, AITF_identity info);
 	AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, uint64_t c1, uint64_t c2, AITF_identity info);

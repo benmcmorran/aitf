@@ -31,10 +31,10 @@ typedef enum{
 
 int main(int argc, char *argv[])
 {  
-  RRFilter filter1(1, IP::address_type("192.168.10.10"), 42, 42);
-  RRFilter filter2(2, IP::address_type("192.168.100.10"), 42, 42);
-  RRFilter filter3(3, IP::address_type("192.168.200.10"), 42, 42);
-  RRFilter filter4(3, IP::address_type("192.168.30.100"), 42, 42);
+  RRFilter filter1(1, IP::address_type("192.168.30.10"), 42, 42);
+  RRFilter filter2(2, IP::address_type("192.168.200.20"), 42, 42);
+  RRFilter filter3(3, IP::address_type("192.168.100.20"), 42, 42);
+  RRFilter filter4(3, IP::address_type("192.168.10.100"), 42, 42);
 
   std::vector<RRFilter> filters;
   filters.push_back(filter1);
@@ -42,14 +42,14 @@ int main(int argc, char *argv[])
   filters.push_back(filter3);
   filters.push_back(filter4);
 
-  AITF_packet packet(ENFORCE, 0, 0, 3, filters, IP::address_type("192.168.30.10"), 4);
+  AITF_packet packet(ENFORCE, 0, 0, 1, filters, IP::address_type("192.168.10.10"), 4);
 
   int status, sd, len, s, r;
   uint8_t msg[MAXBUF];
   struct addrinfo hints;
   struct addrinfo *servinfo, *p; // will point to the results
 
-  const char url[] = "192.168.30.100", port[] = "11467";
+  const char url[] = "192.168.10.100", port[] = "11467";
 
   memset(&hints, 0 , sizeof(hints)); // make sure the stuct is empty
   hints.ai_family = AF_INET; // only IPv4
