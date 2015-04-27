@@ -4,6 +4,7 @@
 #include <sys/resource.h>
 #include <asm/errno.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <malloc.h>
@@ -49,8 +50,15 @@ uint64_t generateNonce(){
 }
 
 int block_verdict(RREntry r, IP::address_type addr){
+	struct timeval start_time;
+    gettimeofday(&start_time, NULL);
 	int verdict;
+	int bypass = start_time.tv_sec;
+
 	for (int i = 0; i < block_rules.size(); i++){
+		if (bypass > block_rules.at(i).ttl()){
+			continue;
+		}
 		verdict = block_rules.at(i).match(r, addr);
 		if (verdict == 1){
 			return NF_ACCEPT;
@@ -242,6 +250,13 @@ void AITF_block(AITF_packet pack){
 			vector<RRFilter> rent = pack.identity().filters();
 
 			RRFilter block = rent.at(pack.pointer()-1);
+
+			cout << endl << "INSTALLING BLOCK: " << block.to_string() << endl;
+
+			struct timeval start_time;
+    		gettimeofday(&start_time, NULL);
+
+			block.set_ttl(start_time.tv_sec + 30);
 			block_rules.push_back(block);
 
 			istate_table.erase(pack.identity());

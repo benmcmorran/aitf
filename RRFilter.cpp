@@ -68,6 +68,14 @@ void RRFilter::set_match_type(uint8_t mt){
 	_match_type = mt;
 }
 
+void RRFilter::set_ttl(uint32_t t){
+	_ttl = t;
+}
+
+uint32_t RRFilter::ttl(){
+	return _ttl;
+}
+
 string RRFilter::to_string(){
 	stringstream data;
 	data << "MT: " << match_type() << " R1: " << random_number_1() << " R2: " << random_number_2() << " ADDR: " << address();

@@ -26,6 +26,9 @@ public:
 	void set_match_type(uint8_t mt);
 	int match(RREntry entry, IP::address_type addr);
 
+	void set_ttl(uint32_t t);
+	uint32_t ttl();
+
 	string to_string();
 	bool operator==(RRFilter i) const;
 
@@ -34,4 +37,5 @@ private:
 	IP::address_type _address;
 	uint64_t _random_number_1;
 	uint64_t _random_number_2;
+	uint32_t _ttl;
 };
