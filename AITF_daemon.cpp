@@ -122,10 +122,15 @@ uint64_t generateRandomValue(IP::address_type addr, int x){
 
 
 void AITF_escalation(AITF_packet pack){
+	cout << endl << pack.to_string() << endl;
+
 	uint64_t nonce1 = generateNonce();
 	ostate_table[pack.identity()].set_nonce1(nonce1);
 
 	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, pack.pointer()+1, pack.identity());
+
+	cout << endl << request.to_string() << endl;
+
 
 	if (request.identity().filters().size() >= pack.pointer()+1){
 		send_AITF_message(request, request.identity().filters()[pack.pointer()+1].address());
@@ -205,7 +210,7 @@ void AITF_verify(AITF_packet pack){
 		if (cstate.nonce1() == pack.nonce1()){
 			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.pointer(), pack.identity());
 
-			send_AITF_message(block, pack.identity().filters()[cstate.currentRoute()].address());
+			send_AITF_message(block, pack.identity().filters()[pack.pointer()].address());
 		}
 	}
 	return;
