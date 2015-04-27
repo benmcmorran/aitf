@@ -47,6 +47,27 @@ static void strip_rr(IP& ip, const RR& rr) {
     ip.protocol(rr.original_protocol());
 }
 
+static bool should_intercept(const IP& ip, const RR* rr) {
+    if (!hosts.isEnabledHost(ip.dst_addr())) return false;
+
+    const UDP *udp = ip.find_pdu<UDP>();
+    if (udp != 0)
+        return udp->dport() == 11467;
+
+    if (rr != 0) {
+        try {
+            UDP udp(&rr->payload()[0], rr->payload().size());
+            if (udp.dport() == 11467) return true;
+        } catch (malformed_packet e) { }
+    }
+
+    return false;
+}
+
+static bool is_blocked(const RREntry& entry, const IP::address_type destination) {
+    return false;
+}
+
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data)
 {
@@ -60,11 +81,27 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     try {
         IP ip = IP(packet, size);
         cout << ip.src_addr() << " -> " << ip.dst_addr() << endl;
+        NetworkInterface interface(ip.dst_addr());
+        IP::address_type interface_addr = interface.addresses().ip_addr;
 
         RR *rr = ip.find_pdu<RR>();
 
         if (mode == ROUTER) {
-            if (hosts.isLegacyHost(ip.dst_addr())) {
+            // TODO Figure out what the magic numbers are for the source address
+            RREntry last_hop(ip.src_addr(), 0x0, 0x0);
+            if (rr != 0)
+                last_hop = rr->route().back();
+
+            // TODO make this actually redirect, not just drop
+            if (should_intercept(ip, rr)) {
+                cout << "Intercepting packet" << endl;
+                verdict = NF_DROP;
+            }
+            // TODO make is_blocked() function real
+            else if (is_blocked(last_hop, ip.dst_addr())) {
+                cout << "Packet blocked" << endl;
+                verdict = NF_DROP;
+            } else if (hosts.isLegacyHost(ip.dst_addr())) {
                 cout << "Legacy host detected" << endl;
                 if (rr != 0) {
                     print_route(rr->route());
@@ -81,7 +118,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 }
 
                 NetworkInterface interface(ip.dst_addr());
-                rr->route().push_back(RREntry(interface.addresses().ip_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
+                rr->route().push_back(RREntry(interface_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
 
                 if (rr->route().size() > rr->route_capacity()) {
                     cout << "RR table filled. Dropping packet." << endl;
@@ -115,7 +152,7 @@ void fail(const char* msg) {
 }
 
 void usage() {
-    fail("Usage: rr [--host] [--list hostsfile]");
+    fail("Usage: rr [--host] [--list hostsfile] [--queue number]");
 }
 
 int main(int argc, char **argv)
@@ -132,6 +169,7 @@ int main(int argc, char **argv)
     int fd;
     int rv;
     char buf[4096] __attribute__ ((aligned));
+    int queue = 0;
 
     if (argc >= 2) {
         for (int i = 0; i < argc; i++) {
@@ -145,14 +183,18 @@ int main(int argc, char **argv)
                 } catch (const AITFException& e) {
                     fail("Could not read hosts file");
                 }
+            } else if (strcmp(argv[i], "--queue") == 0) {
+                if (i + 1 >= argc) usage();
+                queue = atoi(argv[i + 1]);
+                i++;
             }
         }
     }
 
     if (mode == HOST)
-        cout << "Running in host mode" << endl;
+        cout << "Running in host mode on queue " << queue << endl;
     else if (mode == ROUTER)
-        cout << "Running in router mode" << endl;
+        cout << "Running in router mode on queue " << queue << endl;
 
 
     h = nfq_open();
@@ -160,7 +202,7 @@ int main(int argc, char **argv)
     if (nfq_unbind_pf(h, AF_INET) < 0) fail("error during nfq_unbind_pf()");
     if (nfq_bind_pf(h, AF_INET) < 0) fail("error during nfq_bind_pf()");
 
-    qh = nfq_create_queue(h,  0, &cb, NULL);
+    qh = nfq_create_queue(h, queue, &cb, NULL);
     if (!qh) fail("error during nfq_create_queue()");
 
     if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xffff) < 0) fail("can't set packet_copy mode");
