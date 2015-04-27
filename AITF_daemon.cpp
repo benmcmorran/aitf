@@ -117,7 +117,7 @@ void send_AITF_message(AITF_packet pack, IP::address_type addr){
 }
 
 uint64_t generateRandomValue(IP::address_type addr, int x){
-	return 12345;
+	return 42;
 }
 
 
