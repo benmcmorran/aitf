@@ -125,7 +125,7 @@ void AITF_escalation(AITF_packet pack){
 	uint64_t nonce1 = generateNonce();
 	ostate_table[pack.identity()].set_nonce1(nonce1);
 
-	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, pack.pointer()+1, pack.identity().filters(), pack.identity().victim(), pack.identity().size());
+	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, pack.pointer()+1, pack.identity());
 
 	if (request.identity().filters().size() >= pack.pointer()+1){
 		send_AITF_message(request, request.identity().filters()[pack.pointer()+1].address());
