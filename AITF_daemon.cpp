@@ -264,6 +264,7 @@ void AITF_correct(AITF_packet pack){
 
 			ostate_table.erase(pack.identity());
 			ostate_table[enforce.identity()] = cstate;
+			ostate_table[enforce.identity()].set_ttl(bypass+TLONG-TLONG/6);
 			ostate_table[enforce.identity()].set_currentRoute(pack.pointer());
 
 			cout << endl << "ENFORCE: " << enforce.to_string() << endl;
