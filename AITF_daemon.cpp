@@ -159,7 +159,7 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
     	gettimeofday(&start_time, NULL);
 		int bypass = start_time.tv_sec;
 
-		if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() <= bypass){
+		if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() >= bypass){
 
 			ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
 
@@ -231,7 +231,7 @@ void AITF_verify(AITF_packet pack){
     gettimeofday(&start_time, NULL);
 	int bypass = start_time.tv_sec;
 	
-	if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() <= bypass){
+	if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() >= bypass){
 		
 		ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
 
@@ -250,7 +250,7 @@ void AITF_correct(AITF_packet pack){
     gettimeofday(&start_time, NULL);
 	int bypass = start_time.tv_sec;
 
-	if (ostate_table.count(pack.identity())){
+	if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() >= bypass){
 
 		ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
 
