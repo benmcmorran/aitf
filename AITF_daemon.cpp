@@ -260,11 +260,13 @@ void AITF_correct(AITF_packet pack){
 			rent[pack.pointer()].set_random_number_1(pack.crn1());
 			rent[pack.pointer()].set_random_number_2(pack.crn2());
 			rent[pack.pointer()].set_match_type(2);
-			AITF_packet enforce = AITF_packet((uint8_t)ENFORCE, (uint64_t)0, (uint64_t)0, (uint32_t)0, rent, pack.identity().victim(), rent.size());
+			AITF_packet enforce = AITF_packet((uint8_t)ENFORCE, (uint64_t)0, (uint64_t)0, pack.pointer(), rent, pack.identity().victim(), rent.size());
 
 			ostate_table.erase(pack.identity());
 			ostate_table[enforce.identity()] = cstate;
 			ostate_table[enforce.identity()].set_currentRoute(pack.pointer());
+
+			cout << endl << "ENFORCE: " << enforce.to_string() << endl;
 
 			AITF_enforce(enforce, pack.identity().victim());
 		}
