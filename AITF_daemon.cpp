@@ -24,6 +24,8 @@
 #include "AITF_connect_state.h"
 #include "numbers.c"
 
+#define TLONG 30
+
 using namespace Tins;
 using namespace std;
 
@@ -135,13 +137,15 @@ void AITF_escalation(AITF_packet pack){
 	uint64_t nonce1 = generateNonce();
 	ostate_table[pack.identity()].set_nonce1(nonce1);
 
-	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, pack.pointer()+1, pack.identity());
+	AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, ostate_table[pack.identity()].currentRoute()+1, pack.identity());
+
+	ostate_table[pack.identity()].set_currentRoute(request.pointer());
 
 	cout << endl << request.to_string() << endl;
 
 
-	if (request.identity().filters().size() >= pack.pointer()+1){
-		send_AITF_message(request, request.identity().filters()[pack.pointer()+1].address());
+	if (request.identity().filters().size() > request.pointer()){
+		send_AITF_message(request, request.identity().filters()[request.pointer()].address());
 	}else{
 		ostate_table.erase(request.identity());
 	}
@@ -151,7 +155,14 @@ void AITF_escalation(AITF_packet pack){
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
 	cout << "Host enabled " << hosts.isEnabledHost(addr) << " " << addr << endl;
 	if (hosts.isEnabledHost(addr)){
-		if (ostate_table.count(pack.identity())){
+		struct timeval start_time;
+    	gettimeofday(&start_time, NULL);
+		int bypass = start_time.tv_sec;
+
+		if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() <= bypass){
+
+			ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
+
 			AITF_escalation(pack);
 		}else{
 			AITF_connect_state cstate(0,0,0);
@@ -159,6 +170,8 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 			
 			uint64_t nonce1 = generateNonce();
 			ostate_table[pack.identity()].set_nonce1(nonce1);
+			ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
+			ostate_table[pack.identity()].set_currentRoute(1);
 
 			AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, (uint32_t)1, pack.identity().filters(), pack.identity().victim(), pack.identity().size());
 
@@ -214,7 +227,14 @@ void AITF_request(AITF_packet pack){
 }
 
 void AITF_verify(AITF_packet pack){
-	if (ostate_table.count(pack.identity())){
+	struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+	int bypass = start_time.tv_sec;
+	
+	if (ostate_table.count(pack.identity()) && ostate_table[pack.identity()].ttl() <= bypass){
+		
+		ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
+
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
 			AITF_packet block((uint8_t)BLOCK, (uint64_t)0, pack.nonce2(), pack.pointer(), pack.identity());
@@ -226,7 +246,14 @@ void AITF_verify(AITF_packet pack){
 }
 
 void AITF_correct(AITF_packet pack){
+	struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+	int bypass = start_time.tv_sec;
+
 	if (ostate_table.count(pack.identity())){
+
+		ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
+
 		AITF_connect_state cstate = ostate_table.at(pack.identity());
 		if (cstate.nonce1() == pack.nonce1()){
 			vector<RRFilter> rent = pack.identity().filters();
@@ -237,6 +264,7 @@ void AITF_correct(AITF_packet pack){
 
 			ostate_table.erase(pack.identity());
 			ostate_table[enforce.identity()] = cstate;
+			ostate_table[enforce.identity()].set_currentRoute(pack.pointer());
 
 			AITF_enforce(enforce, pack.identity().victim());
 		}
@@ -257,7 +285,7 @@ void AITF_block(AITF_packet pack){
 			struct timeval start_time;
     		gettimeofday(&start_time, NULL);
 
-			block.set_ttl(start_time.tv_sec + 30);
+			block.set_ttl(start_time.tv_sec + TLONG);
 			block_rules.push_back(block);
 
 			istate_table.erase(pack.identity());

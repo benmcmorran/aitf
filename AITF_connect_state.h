@@ -14,7 +14,9 @@ public:
 	uint64_t nonce1();
 	uint64_t nonce2();
 	int currentRoute();
+	int ttl();
 
+	void set_ttl(int t);
 	void set_currentRoute(int x);
 	void set_nonce1(uint64_t n1);
 	void set_nonce2(uint64_t n2);
@@ -23,6 +25,7 @@ public:
 
 private:
 	int _current;
+	int _ttl;
 	uint64_t _nonce1;
 	uint64_t _nonce2;
 
