@@ -18,6 +18,14 @@ uint64_t AITF_connect_state::nonce2(){
 	return _nonce2;
 }
 
+int AITF_connect_state::ttl(){
+	return _ttl;
+}
+
+void AITF_connect_state::set_ttl(int t){
+	_ttl = t;
+}
+
 void AITF_connect_state::inc_currentRoute(){
 	_current++;
 }
