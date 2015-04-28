@@ -264,6 +264,7 @@ void AITF_correct(AITF_packet pack){
 
 			ostate_table.erase(pack.identity());
 			ostate_table[enforce.identity()] = cstate;
+			ostate_table[enforce.identity()].set_currentRoute(pack.pointer());
 
 			AITF_enforce(enforce, pack.identity().victim());
 		}
