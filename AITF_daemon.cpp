@@ -22,7 +22,7 @@
 #include "HostMapping.h"
 #include "AITF_packet.h"
 #include "AITF_connect_state.h"
-//#include "AITF_identity_hash.h"
+#include "numbers.c"
 
 using namespace Tins;
 using namespace std;
@@ -46,7 +46,7 @@ typedef struct thread_data{
 
 
 uint64_t generateNonce(){
-	return 1232;
+	return generate_key();
 }
 
 int block_verdict(RREntry r, IP::address_type addr){
@@ -125,7 +125,7 @@ void send_AITF_message(AITF_packet pack, IP::address_type addr){
 }
 
 uint64_t generateRandomValue(IP::address_type addr, int x){
-	return 42;
+	return hash_for_destination(addr, x - 1);
 }
 
 

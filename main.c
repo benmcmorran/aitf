@@ -149,6 +149,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
         } else if (mode == HOST) {
             if (rr != 0) {
+                
                 //print_route(rr->route());
                 strip_rr(ip, *rr);
             } else {
