@@ -153,6 +153,7 @@ void AITF_escalation(AITF_packet pack){
 }
 
 void AITF_enforce(AITF_packet pack, IP::address_type addr){
+	cout << "Host enabled " << hosts.isEnabledHost(addr) << " " << addr << endl;
 	if (hosts.isEnabledHost(addr)){
 		struct timeval start_time;
     	gettimeofday(&start_time, NULL);
@@ -363,8 +364,9 @@ void AITF_daemon(void* data){
 			uint32_t conn_addr = client_addr.sin_addr.s_addr;
 			buff->addr = IP::address_type(conn_addr);
 			buff->size = tsdata;
-			pthread_t helper;
-			pthread_create(&helper, NULL, (void*(*)(void*))AITF_action, buff);
+			//pthread_t helper;
+			//pthread_create(&helper, NULL, (void*(*)(void*))AITF_action, buff);
+			AITF_action(buff);
 		}else{
 			free(buff);
 		}

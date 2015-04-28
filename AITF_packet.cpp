@@ -1,5 +1,7 @@
 #include "AITF_packet.h"
 
+AITF_packet::AITF_packet() {}
+
 AITF_packet::AITF_packet(uint8_t ptype, uint64_t nonce1, uint64_t nonce2, uint32_t pointer, vector<RRFilter> rfilters, IP::address_type dest_addr, uint32_t size):
 	_packet_type(ptype), _nonce1(nonce1), _nonce2(nonce2), _pointer(pointer), _crn1(0), _crn2(0), aitf_info(rfilters, dest_addr, size){}
 
