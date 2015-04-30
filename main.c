@@ -128,7 +128,8 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
 
             // TODO Figure out what the magic numbers are for the source address
-            RREntry last_hop(ip.src_addr(), 0x0, 0x0);
+            RREntry src_hop(ip.src_addr(), 0x0, 0x0);
+            RREntry last_hop = src_hop;
             if (rr != 0 && rr->route().size() >= 1)
                 last_hop = rr->route().back();
 
@@ -138,7 +139,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 send_AITF_message(aitf, IP::address_type("192.168.10.100"));
                 verdict = NF_DROP;
             }
-            else if (is_blocked(last_hop, ip.dst_addr()) || (is_shadow && rr->route().size() > 1 && is_blocked(rr->route().at(0), ip.dst_addr()))) {
+            else if (is_blocked(last_hop, ip.dst_addr()) || (is_shadow && rr->route().size() > 1 && is_blocked(src_hop, ip.dst_addr()))) {
                 //cout << "Packet blocked" << endl;
                 verdict = NF_DROP;
             } else if (hosts.isLegacyHost(ip.dst_addr())) {
