@@ -30,11 +30,11 @@ uint64_t hash_for_destination(IP::address_type address, int steps) {
 	struct timeval now;
 	gettimeofday(&now, NULL);
 
-	if (is_expired(&local_key_update, &now, 10) || local_key_1 == 0 || local_key_2 == 0) {
+	if (is_expired(&local_key_update, &now, 60) || local_key_1 == 0 || local_key_2 == 0) {
 		local_key_update = now;
 		local_key_1 = generate_key();
 		local_key_2 = generate_key();
-	} else if (is_expired(&local_key_update, &now, 5)) {
+	} else if (is_expired(&local_key_update, &now, 30)) {
 		local_key_update = now;
 		local_key_1 = local_key_2;
 		local_key_2 = generate_key();

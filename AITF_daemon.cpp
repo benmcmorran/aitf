@@ -22,7 +22,7 @@
 #include "HostMapping.h"
 #include "AITF_packet.h"
 #include "AITF_connect_state.h"
-#include "numbers.c"
+#include "numbers.h"
 
 #define TLONG 30
 

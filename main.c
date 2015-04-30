@@ -16,6 +16,7 @@
 #include "HostMappingReader.h"
 #include "HostMapping.h"
 #include "AITF_packet.h"
+#include "numbers.h"
 
 int intializeAITF(void*);
 int block_verdict(RREntry, IP::address_type);
@@ -34,12 +35,17 @@ typedef struct {
     Mode mode;
 } nf_data;
 
+bool is_victim = false;
+bool last_event_set = false;
+struct timeval last_event;
+long long event_delay;
+
 bool is_bad = false;
 HostMapping hosts;
 
 static void print_route(std::vector<RREntry>& route) {
     for (int i = 0; i < route.size(); i++)
-        cout << i << " " << route[i].address() << endl;
+        cout << i << " " << route[i].address() << " " << route[i].random_number_1() << " " << route[i].random_number_2() << endl;
 }
 
 static void create_rr(IP& ip) {
@@ -112,14 +118,12 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             if (rr != 0)
                 last_hop = rr->route().back();
 
-            // TODO make this actually redirect, not just drop
             AITF_packet aitf;
             if (should_intercept(ip, rr, &aitf)) {
                 //cout << "Intercepting packet" << endl;
                 send_AITF_message(aitf, IP::address_type("192.168.10.100"));
                 verdict = NF_DROP;
             }
-            // TODO make is_blocked() function real
             else if (is_blocked(last_hop, ip.dst_addr())) {
                 //cout << "Packet blocked" << endl;
                 verdict = NF_DROP;
@@ -140,7 +144,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 }
 
                 NetworkInterface interface(ip.dst_addr());
-                rr->route().push_back(RREntry(interface_addr, 0xaaaaaaaaaaaaaaaa, 0xbbbbbbbbbbbbbbbb));
+                rr->route().push_back(RREntry(interface_addr, hash_for_destination(ip.dst_addr(), 0), hash_for_destination(ip.dst_addr(), 1)));
 
                 if (rr->route().size() > rr->route_capacity()) {
                     //cout << "RR table filled. Dropping packet." << endl;
@@ -149,7 +153,48 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
             }
         } else if (mode == HOST) {
             if (rr != 0) {
-                
+                // Check if this is a bad packet
+                // TODO don't hard code attacker ip addresses
+                bool is_bad = false;
+
+                try {
+                    UDP udp(&rr->payload()[0], rr->payload().size());
+                    RawPDU* raw = udp.find_pdu<RawPDU>();
+                    if (raw != 0) {
+                        is_bad = raw->payload()[0] == 1;
+                    }
+                } catch (malformed_packet e) { }
+
+
+                if (is_bad && is_victim) {
+                    if (!last_event_set) {
+                        printf("Attack detected\n");
+                        gettimeofday(&last_event, NULL);
+                        last_event_set = true;
+                        event_delay = 500000;
+                    } else {
+                        struct timeval now;
+                        gettimeofday(&now, NULL);
+                        if ((now.tv_sec - last_event.tv_sec) * 1000000 + now.tv_usec - last_event.tv_usec > event_delay) {
+                            printf("Enforce sent\n");
+                            print_route(rr->route());
+
+                            vector<RRFilter> filters;
+                            filters.push_back(RRFilter(0, ip.src_addr(), 0x0, 0x0));
+                            for (int i = 0; i < rr->route().size(); i++) {
+                                const RREntry& entry = rr->route().at(i);
+                                filters.push_back(RRFilter(0, entry.address(), entry.random_number_1(), entry.random_number_2()));
+                            }
+
+                            AITF_packet enforce(0, 0, 0, 1, filters, IP::address_type("192.168.10.10"), filters.size());
+                            send_AITF_message(enforce, IP::address_type("192.168.10.100"));
+
+                            last_event = now;
+                            event_delay = 10000000;
+                        }
+                    }
+                }
+
                 //print_route(rr->route());
                 strip_rr(ip, *rr);
             } else {
@@ -231,6 +276,8 @@ int main(int argc, char **argv)
                 }
             } else if (strcmp(argv[i], "--bad") == 0) {
                 is_bad = true;
+            } else if (strcmp(argv[i], "--victim") == 0) {
+                is_victim = true;
             }
         }
     }
