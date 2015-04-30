@@ -283,6 +283,10 @@ void AITF_block(AITF_packet pack){
 
 			RRFilter block = rent.at(pack.pointer()-1);
 
+			if (block.match_type() == 1) {
+				block.set_address(pack.identity().victim());
+			}
+
 			cout << endl << "INSTALLING BLOCK: " << block.to_string() << endl;
 
 			struct timeval start_time;

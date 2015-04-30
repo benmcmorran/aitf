@@ -42,6 +42,8 @@ long long event_delay;
 
 bool is_bad = false;
 bool is_spoof = false;
+bool is_wildcard = false;
+bool is_aggressive = false;
 HostMapping hosts;
 
 static void print_route(std::vector<RREntry>& route) {
@@ -184,17 +186,17 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                             print_route(rr->route());
 
                             vector<RRFilter> filters;
-                            filters.push_back(RRFilter(0, ip.src_addr(), 0x0, 0x0));
+                            filters.push_back(RRFilter(is_wildcard ? 1 : 0, ip.src_addr(), 0x0, 0x0));
                             for (int i = 0; i < rr->route().size(); i++) {
                                 const RREntry& entry = rr->route().at(i);
-                                filters.push_back(RRFilter(0, entry.address(), entry.random_number_1(), entry.random_number_2()));
+                                filters.push_back(RRFilter(is_wildcard ? 1 : 0, entry.address(), entry.random_number_1(), entry.random_number_2()));
                             }
 
                             AITF_packet enforce(0, 0, 0, 1, filters, IP::address_type("192.168.10.10"), filters.size());
                             send_AITF_message(enforce, IP::address_type("192.168.10.100"));
 
                             last_event = now;
-                            event_delay = 10000000;
+                            event_delay = is_aggressive ? 1000000 : 10000000;
                         }
                     }
                 }
@@ -284,6 +286,10 @@ int main(int argc, char **argv)
                 is_victim = true;
             } else if (strcmp(argv[i], "--spoof") == 0) {
                 is_spoof = true;
+            } else if (strcmp(argv[i], "--wildcard") == 0) { 
+                is_wildcard = true;
+            } else if (strcmp(argv[i], "--aggressive") == 0) {
+                is_aggressive = true;
             }
         }
     }

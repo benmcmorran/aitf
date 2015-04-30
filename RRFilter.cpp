@@ -56,6 +56,10 @@ uint64_t RRFilter::random_number_2() const{
 	return _random_number_2;
 }
 
+void RRFilter::set_address(IP::address_type addr) {
+	_address = addr;
+}
+
 void RRFilter::set_random_number_1(uint64_t r1){
 	_random_number_1 = r1;
 }

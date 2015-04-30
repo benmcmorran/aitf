@@ -57,7 +57,7 @@ bool AITF_identity::operator==(const AITF_identity& i) const{
 }
 
 bool AITF_identity::operator < ( const AITF_identity& other) const{
-	return _victim < other.victim();
+	return _victim + _filters[0].address() < other.victim() + other.filters()[0].address();
 }
 
 string AITF_identity::to_string(){
