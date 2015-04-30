@@ -41,6 +41,7 @@ struct timeval last_event;
 long long event_delay;
 
 bool is_bad = false;
+bool is_spoof = false;
 HostMapping hosts;
 
 static void print_route(std::vector<RREntry>& route) {
@@ -113,9 +114,19 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
         RR *rr = ip.find_pdu<RR>();
 
         if (mode == ROUTER) {
+            if (rr != 0) {
+                //cout << "Adding to existing RR" << endl;
+            } else {
+                create_rr(ip);
+                rr = ip.find_pdu<RR>();
+                if (is_spoof && ip.src_addr() == IP::address_type("192.168.30.10")) {
+                    rr->route().push_back(RREntry(IP::address_type("192.168.100.20"), 42, 42));
+                }
+            }
+
             // TODO Figure out what the magic numbers are for the source address
             RREntry last_hop(ip.src_addr(), 0x0, 0x0);
-            if (rr != 0)
+            if (rr != 0 && rr->route().size() >= 1)
                 last_hop = rr->route().back();
 
             AITF_packet aitf;
@@ -136,13 +147,6 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                     //cout << "No RR table present" << endl;
                 }
             } else {
-                if (rr != 0) {
-                    //cout << "Adding to existing RR" << endl;
-                } else {
-                    create_rr(ip);
-                    rr = ip.find_pdu<RR>();
-                }
-
                 NetworkInterface interface(ip.dst_addr());
                 rr->route().push_back(RREntry(interface_addr, hash_for_destination(ip.dst_addr(), 0), hash_for_destination(ip.dst_addr(), 1)));
 
@@ -278,6 +282,8 @@ int main(int argc, char **argv)
                 is_bad = true;
             } else if (strcmp(argv[i], "--victim") == 0) {
                 is_victim = true;
+            } else if (strcmp(argv[i], "--spoof") == 0) {
+                is_spoof = true;
             }
         }
     }
