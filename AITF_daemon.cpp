@@ -63,10 +63,6 @@ int block_verdict(RREntry r, IP::address_type addr){
 			continue;
 		}
 
-		cout << "ADDR: " << r.address() << " DADDR: " << addr;
-
-		cout << " B RULE: " << block_rules.at(i).to_string() << endl;
-
 		verdict = block_rules.at(i).match(r, addr);
 		if (verdict == 1){
 			return NF_ACCEPT;
