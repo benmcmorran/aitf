@@ -30,6 +30,9 @@ public:
 	void set_ttl(uint32_t t);
 	uint32_t ttl();
 
+	void set_destaddr(IP::address_type addr);
+	const IP::address_type destaddr() const;
+
 	string to_string();
 	bool operator==(RRFilter i) const;
 
@@ -39,4 +42,5 @@ private:
 	uint64_t _random_number_1;
 	uint64_t _random_number_2;
 	uint32_t _ttl;
+	IP::address_type _destaddr;
 };

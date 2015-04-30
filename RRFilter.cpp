@@ -80,6 +80,14 @@ uint32_t RRFilter::ttl(){
 	return _ttl;
 }
 
+void RRFilter::set_destaddr(IP::address_type addr){
+	_destaddr = addr;
+}
+
+const IP::address_type RRFilter::destaddr() const{
+	return _destaddr;
+}
+
 string RRFilter::to_string(){
 	stringstream data;
 	data << "MT: " << match_type() << " R1: " << random_number_1() << " R2: " << random_number_2() << " ADDR: " << address();
@@ -95,21 +103,24 @@ bool RRFilter::operator==(RRFilter i) const{
 }
 
 int RRFilter::match(RREntry entry, IP::address_type addr){
-	if (addr == address() && match_type() == 1){
+	if (addr == destaddr() && match_type() == 1){
 		return 0;
 	}
 
-	if (entry.address() == address()){
-		if (match_type() == 0){
-			return 0;
-		}else{
-			if (random_number_1() == entry.random_number_1() || random_number_2() == entry.random_number_1()){
-				return 1;
-			}else{
+	if (addr == destaddr()){
+		if (entry.address() == address()){
+			if (match_type() == 0){
 				return 0;
-			}	
+			}else{
+				if (random_number_1() == entry.random_number_1() || random_number_2() == entry.random_number_1()){
+					return 1;
+				}else{
+					return 0;
+				}	
+			}
+		}else{
+			return 2;
 		}
-	}else{
-		return 2;
 	}
+	return 2;
 }
