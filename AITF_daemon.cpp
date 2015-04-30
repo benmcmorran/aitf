@@ -182,6 +182,8 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 			if (is_shadow){
 				RRFilter block = pack.identity().filters().at(0);
 
+				block.set_destaddr(pack.identity().victim());
+
 				cout << endl << "INSTALLING SHADOW TEMP BLOCK: " << block.to_string() << endl;
 
 				struct timeval start_time;
