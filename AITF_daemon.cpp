@@ -30,6 +30,7 @@ using namespace Tins;
 using namespace std;
 
 extern HostMapping hosts;
+extern bool is_shadow;
 
 map<AITF_identity, AITF_connect_state> ostate_table;
 map<AITF_identity, AITF_connect_state> istate_table;
@@ -172,6 +173,18 @@ void AITF_enforce(AITF_packet pack, IP::address_type addr){
 			ostate_table[pack.identity()].set_nonce1(nonce1);
 			ostate_table[pack.identity()].set_ttl(bypass+TLONG-TLONG/6);
 			ostate_table[pack.identity()].set_currentRoute(1);
+
+			if (is_shadow){
+				RRFilter block = pack.identity().filters().at(0);
+
+				cout << endl << "INSTALLING SHADOW TEMP BLOCK: " << block.to_string() << endl;
+
+				struct timeval start_time;
+	    		gettimeofday(&start_time, NULL);
+
+				block.set_ttl(start_time.tv_sec + TLONG/6);
+				block_rules.push_back(block);
+			}
 
 			AITF_packet request = AITF_packet((uint8_t)REQUEST, nonce1, (uint64_t)0, (uint32_t)1, pack.identity().filters(), pack.identity().victim(), pack.identity().size());
 

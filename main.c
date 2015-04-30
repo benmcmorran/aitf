@@ -44,6 +44,7 @@ bool is_bad = false;
 bool is_spoof = false;
 bool is_wildcard = false;
 bool is_aggressive = false;
+bool is_shadow = false;
 HostMapping hosts;
 
 static void print_route(std::vector<RREntry>& route) {
@@ -137,7 +138,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
                 send_AITF_message(aitf, IP::address_type("192.168.10.100"));
                 verdict = NF_DROP;
             }
-            else if (is_blocked(last_hop, ip.dst_addr())) {
+            else if (is_blocked(last_hop, ip.dst_addr()) || (is_shadow && is_blocked(rr->route().at(0), ip.dst_addr()))) {
                 //cout << "Packet blocked" << endl;
                 verdict = NF_DROP;
             } else if (hosts.isLegacyHost(ip.dst_addr())) {
@@ -290,6 +291,8 @@ int main(int argc, char **argv)
                 is_wildcard = true;
             } else if (strcmp(argv[i], "--aggressive") == 0) {
                 is_aggressive = true;
+            } else if (strcmp(argv[i], "--shadow") == 0){
+                is_shadow = true;
             }
         }
     }
